@@ -1,5 +1,7 @@
 # Operações Agrícolas
 
+[![Verificação de código e build](https://github.com/gabrisantoss/operacoes-agricolas/actions/workflows/validate.yml/badge.svg)](https://github.com/gabrisantoss/operacoes-agricolas/actions/workflows/validate.yml)
+
 Uma suíte integrada para acompanhar a rotina agrícola: colheita, pesagem, transporte, colaboradores e indicadores operacionais.
 
 **Projeto de portfólio com demonstração funcional e dados inteiramente fictícios.** Os números, pessoas, propriedades, frotas e movimentações apresentados não representam uma operação real. Esta distribuição não contém módulo de mapas.
@@ -103,5 +105,9 @@ O comando `test` usa um banco de testes separado e executa os testes Python em p
 - Extração OCR e provedores de IA opcionais não foram configurados. Importações e relatórios locais preservam seus mecanismos próprios; nenhuma chave externa é fornecida.
 
 Leia também a [política de segurança e privacidade](SECURITY.md).
+
+## Documentação e contribuições
+
+Leia os [estudos de caso](https://github.com/gabrisantoss/portfolio-sistemas) para conhecer os problemas e as decisões técnicas. Para reportar um problema ou propor uma melhoria na demonstração, siga o [guia de contribuição](CONTRIBUTING.md).
 
 Desenvolvido por **Gabriel Barbosa dos Santos** · [GitHub](https://github.com/gabrisantoss)
