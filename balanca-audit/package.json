@@ -1,0 +1,41 @@
+{
+  "name": "operacoes-agricolas-balanca",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "npm@11.16.0",
+  "engines": {
+    "node": ">=22.9.0 <23",
+    "npm": ">=11 <12"
+  },
+  "description": "Sistema local para auditoria de divergencias entre OS, talhoes liberados e entradas de cana na balanca.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run build -w @balanca/shared && npm-run-all -p dev:api dev:web dev:desktop",
+    "dev:browser": "npm run build -w @balanca/shared && npm-run-all -p dev:api dev:web",
+    "dev:api": "npm run dev -w @balanca/api",
+    "dev:web": "npm run dev -w @balanca/web",
+    "dev:desktop": "wait-on tcp:8833 tcp:8873 && npm run dev -w @balanca/desktop",
+    "build:browser": "npm run build -w @balanca/shared && npm run build -w @balanca/api && npm run build -w @balanca/web",
+    "start:browser": "npm-run-all -p start:api start:web",
+    "start:api": "npm run start -w @balanca/api",
+    "start:web": "npm run start -w @balanca/web",
+    "build": "npm run build -w @balanca/shared && npm run build -w @balanca/api && npm run build -w @balanca/web && npm run build -w @balanca/desktop",
+    "typecheck": "npm run build -w @balanca/shared && npm run typecheck -w @balanca/api && npm run typecheck -w @balanca/web && npm run typecheck -w @balanca/desktop",
+    "test": "npm run test -w @balanca/api",
+    "verify": "npm run typecheck && npm test && npm run build"
+  },
+  "devDependencies": {
+    "npm-run-all": "^4.1.5",
+    "playwright": "^1.60.0",
+    "typescript": "^5.8.3",
+    "wait-on": "^8.0.3"
+  },
+  "overrides": {
+    "exceljs": {
+      "uuid": "11.1.1"
+    }
+  }
+}

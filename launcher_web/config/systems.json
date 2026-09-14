@@ -1,0 +1,7 @@
+[
+  {"id":"portal","name":"Operações Agrícolas","public_path":"/","internal_host":"127.0.0.1","internal_port":8890,"stack":"Python + PostgreSQL","enabled":true,"requires_auth":true},
+  {"id":"notas","name":"Notas e Transporte","public_path":"/notas","internal_host":"127.0.0.1","internal_port":8891,"stack":"Python + PostgreSQL + PyQt5 + interface web","enabled":true,"requires_auth":true},
+  {"id":"colaboradores","name":"Gestor de Colaboradores","public_path":"/colaboradores","internal_host":"127.0.0.1","internal_port":8892,"stack":"Python + PostgreSQL + PyQt5 + interface web","enabled":true,"requires_auth":true,"admin_only":false},
+  {"id":"analises","name":"Análises Operacionais","public_path":"/analises","internal_host":"127.0.0.1","internal_port":8888,"stack":"Python + PostgreSQL + relatórios","enabled":true,"requires_auth":true},
+  {"id":"balanca","name":"Colheita e Balança","public_path":"/balanca","api_path":"/balanca-api","internal_host":"127.0.0.1","internal_port":8873,"api_port":8833,"health_url":"http://127.0.0.1:8833/health","stack":"React + TypeScript + Express + PostgreSQL","enabled":true,"requires_auth":true}
+]

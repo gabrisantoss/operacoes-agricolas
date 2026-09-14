@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#2f7d4f">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Portal de Opera&ccedil;&otilde;es Agr&iacute;colas | Operações Agrícolas</title>
+  <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="demo-banner" role="note">DEMONSTRAÇÃO FICTÍCIA · Operações Agrícolas · Nenhum dado real</div>
+  <main class="shell">
+    <section id="welcomeScreen" class="welcome-screen" hidden aria-labelledby="welcomeTitle" role="dialog" aria-modal="true">
+      <div class="welcome-card">
+        <img src="/assets/logo.svg" alt="OA">
+        <span>Opera&ccedil;&otilde;es agr&iacute;colas</span>
+        <h1 id="welcomeTitle">Bem-vindo, <strong id="welcomeName">usuario</strong></h1>
+        <p>Seu acesso foi validado. Escolha um sistema para iniciar.</p>
+        <button id="welcomeContinue" class="start-button" type="button">Acessar sistemas</button>
+      </div>
+    </section>
+
+    <section class="account-bar">
+      <div>
+        <span>Conectado como</span>
+        <strong id="userName">Carregando...</strong>
+      </div>
+      <div class="account-actions">
+        <button id="adminToggle" class="small-button" type="button" hidden>Libera&ccedil;&otilde;es</button>
+        <button id="profileToggle" class="small-button profile-button" type="button">Meu perfil</button>
+        <button id="logoutButton" class="small-button ghost" type="button">Sair</button>
+      </div>
+    </section>
+
+    <section class="hero landing-hero" data-launcher-view aria-labelledby="portalTitle">
+      <img class="hero-watermark" src="/assets/logo.svg" alt="" aria-hidden="true">
+      <div class="hero-copy">
+        <span class="eyebrow">Portal interno</span>
+        <h1 id="portalTitle">Portal de Opera&ccedil;&otilde;es Agr&iacute;colas</h1>
+        <p>Ambiente central da opera&ccedil;&atilde;o agr&iacute;cola, pesagem, pessoas e indicadores.</p>
+      </div>
+    </section>
+
+    <section class="systems-section" data-launcher-view aria-labelledby="systemsTitle">
+      <h2 id="systemsTitle" class="sr-only">Sistemas dispon&iacute;veis</h2>
+      <section id="appsGrid" class="apps-grid" aria-live="polite"></section>
+    </section>
+
+    <section id="adminPanel" class="admin-panel" hidden>
+      <div class="admin-panel-head">
+        <div>
+          <span>Administra&ccedil;&atilde;o</span>
+          <h2>Libera&ccedil;&atilde;o de acessos</h2>
+        </div>
+        <div class="admin-actions">
+          <button id="backToLauncher" class="small-button ghost" type="button">Voltar ao launcher</button>
+          <button id="refreshUsers" class="small-button" type="button">Atualizar</button>
+        </div>
+      </div>
+      <div id="usersList" class="users-list"></div>
+
+      <div class="admin-panel-head activity-head">
+        <div>
+          <span>Saude</span>
+          <h2>Status dos sistemas</h2>
+        </div>
+        <button id="refreshSystemHealth" class="small-button" type="button">Atualizar</button>
+      </div>
+      <div id="systemHealthStatus" class="system-health-status"></div>
+
+      <div class="admin-panel-head activity-head">
+        <div>
+          <span>Auditoria</span>
+          <h2>Historico de atividade</h2>
+        </div>
+        <div class="admin-actions">
+          <button id="exportActivity" class="small-button ghost" type="button">Exportar Excel</button>
+          <button id="refreshActivity" class="small-button" type="button">Atualizar</button>
+        </div>
+      </div>
+      <form id="activityFilters" class="audit-filters">
+        <label>
+          Usuario
+          <select id="activityUser">
+            <option value="">Todos</option>
+          </select>
+        </label>
+        <label>
+          Sistema
+          <select id="activityModule">
+            <option value="">Todos</option>
+          </select>
+        </label>
+        <label>
+          Acao
+          <select id="activityEventType">
+            <option value="">Todas</option>
+          </select>
+        </label>
+        <label>
+          Inicio
+          <input id="activityStart" type="date">
+        </label>
+        <label>
+          Fim
+          <input id="activityEnd" type="date">
+        </label>
+        <label class="audit-search">
+          Busca
+          <input id="activitySearch" type="search" placeholder="usuario, item, nota, sistema...">
+        </label>
+        <button class="small-button" type="submit">Filtrar</button>
+      </form>
+      <div id="activitySummary" class="audit-summary"></div>
+      <div id="activityList" class="activity-list"></div>
+
+      <div class="admin-panel-head activity-head">
+        <div>
+          <span>Backup</span>
+          <h2>Backup automático</h2>
+        </div>
+        <button id="backupNow" class="small-button" type="button">Criar agora</button>
+      </div>
+      <div id="backupStatus" class="backup-status"></div>
+    </section>
+
+    <footer class="footer footer-minimal" data-launcher-view>
+      <span>Desenvolvido por</span>
+      <strong>Gabriel Barbosa</strong>
+    </footer>
+  </main>
+
+  <dialog id="profileDialog" class="profile-dialog" aria-labelledby="profileTitle" aria-describedby="profileDescription">
+    <form id="profileForm" class="profile-form" novalidate>
+      <header class="profile-dialog-head">
+        <div class="profile-identity">
+          <span id="profileAvatar" class="profile-avatar" aria-hidden="true">U</span>
+          <div>
+            <span>Conta do usu&aacute;rio</span>
+            <h2 id="profileTitle">Editar meu perfil</h2>
+            <p id="profileDescription">Atualize como seu nome aparece no portal ou altere sua senha.</p>
+          </div>
+        </div>
+        <button id="profileClose" class="profile-close" type="button" aria-label="Fechar edi&ccedil;&atilde;o do perfil" title="Fechar">&times;</button>
+      </header>
+
+      <div class="profile-dialog-body">
+        <div class="profile-section">
+          <div class="profile-section-heading">
+            <span>Dados da conta</span>
+            <small id="profileAccountType"></small>
+          </div>
+          <label class="profile-field" for="profileName">
+            <span>Nome de apresenta&ccedil;&atilde;o</span>
+            <input id="profileName" name="name" type="text" autocomplete="name" minlength="3" maxlength="100" required>
+            <small>Este nome aparece no cabe&ccedil;alho e nos novos registros de atividade.</small>
+          </label>
+          <label class="profile-field" for="profileEmail">
+            <span>E-mail de acesso</span>
+            <input id="profileEmail" name="email" type="email" autocomplete="username" readonly aria-readonly="true">
+            <small>O e-mail identifica sua conta de acesso e n&atilde;o &eacute; alterado nesta tela.</small>
+          </label>
+          <p id="profileIntegratedPasswordNote" class="profile-integrated-note" hidden>A senha desta conta &eacute; gerenciada pelo provedor de acesso integrado.</p>
+        </div>
+
+        <fieldset class="profile-section profile-security">
+          <legend>Alterar senha <small>opcional</small></legend>
+          <p>Para manter a senha atual, deixe os campos abaixo em branco.</p>
+          <label class="profile-field" for="profileCurrentPassword">
+            <span>Senha atual</span>
+            <span class="profile-password-field">
+              <input id="profileCurrentPassword" name="currentPassword" type="password" autocomplete="current-password" maxlength="128">
+              <button class="profile-password-toggle" type="button" data-profile-password-toggle="profileCurrentPassword" aria-label="Mostrar senha atual">Mostrar</button>
+            </span>
+          </label>
+          <div class="profile-password-grid">
+            <label class="profile-field" for="profileNewPassword">
+              <span>Nova senha</span>
+              <span class="profile-password-field">
+                <input id="profileNewPassword" name="newPassword" type="password" autocomplete="new-password" minlength="6" maxlength="128">
+                <button class="profile-password-toggle" type="button" data-profile-password-toggle="profileNewPassword" aria-label="Mostrar nova senha">Mostrar</button>
+              </span>
+            </label>
+            <label class="profile-field" for="profileConfirmPassword">
+              <span>Confirmar nova senha</span>
+              <span class="profile-password-field">
+                <input id="profileConfirmPassword" name="confirmPassword" type="password" autocomplete="new-password" minlength="6" maxlength="128">
+                <button class="profile-password-toggle" type="button" data-profile-password-toggle="profileConfirmPassword" aria-label="Mostrar confirma&ccedil;&atilde;o da senha">Mostrar</button>
+              </span>
+            </label>
+          </div>
+          <small class="profile-password-note">Use pelo menos 6 caracteres. Ao trocar a senha, as outras sess&otilde;es da conta ser&atilde;o encerradas.</small>
+        </fieldset>
+
+        <p id="profileMessage" class="profile-message" role="status" aria-live="polite" hidden></p>
+      </div>
+
+      <footer class="profile-actions">
+        <button id="profileCancel" class="small-button ghost" type="button">Cancelar</button>
+        <button id="profileSubmit" class="small-button" type="submit">Salvar altera&ccedil;&otilde;es</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <template id="appCardTemplate">
+    <article class="app-card">
+      <div class="app-card-top">
+        <div class="app-icon" aria-hidden="true"></div>
+        <span class="status-pill"></span>
+      </div>
+      <div class="app-content">
+        <span class="app-category"></span>
+        <span class="app-kind"></span>
+        <h3></h3>
+        <p class="app-description"></p>
+      </div>
+      <div class="app-actions">
+        <button class="start-button" type="button">
+          <span class="button-text"></span>
+        </button>
+      </div>
+    </article>
+  </template>
+
+  <script src="/app.js?v=29"></script>
+</body>
+</html>

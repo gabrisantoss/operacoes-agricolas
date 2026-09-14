@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login | Portal de Opera&ccedil;&otilde;es Agr&iacute;colas</title>
+  <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="login-page">
+  <main class="auth-shell">
+    <div class="auth-layout">
+      <aside class="auth-side" aria-hidden="true">
+        <img src="/assets/logo.svg" alt="">
+        <h2>Acesso interno aos sistemas</h2>
+        <p>Demonstração funcional de gestão agrícola com dados inteiramente fictícios.</p>
+      </aside>
+
+    <section class="auth-panel" aria-labelledby="authTitle">
+      <div class="auth-brand">
+        <div>
+          <span>Opera&ccedil;&otilde;es agr&iacute;colas</span>
+          <h1 id="authTitle">Acessar portal</h1>
+        </div>
+      </div>
+
+      <div id="authMessage" class="auth-message" hidden></div>
+
+      <div class="auth-tabs" role="tablist" aria-label="Acesso">
+        <button class="auth-tab active" type="button" data-auth-tab="login">Entrar</button>
+        <button class="auth-tab" type="button" data-auth-tab="register">Cadastrar</button>
+      </div>
+
+      <form id="loginForm" class="auth-form active">
+        <label>E-mail ou usuario
+          <input name="email" type="text" autocomplete="username" required>
+        </label>
+        <label>Senha
+          <span class="password-field">
+            <input name="password" type="password" autocomplete="current-password" required>
+            <button class="password-toggle" type="button" data-password-toggle aria-label="Mostrar senha" title="Mostrar senha">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </button>
+          </span>
+        </label>
+        <div class="login-options">
+          <label class="remember-option">
+            <input name="remember" type="checkbox" value="1" checked>
+            <span>Manter conectado</span>
+          </label>
+          <button id="forgotPassword" class="forgot-link" type="button">Esqueci minha senha</button>
+        </div>
+        <button class="start-button" type="submit">Entrar</button>
+      </form>
+
+      <form id="registerForm" class="auth-form">
+        <label>Nome completo
+          <input name="name" autocomplete="name" required>
+        </label>
+        <label>E-mail
+          <input name="email" type="email" autocomplete="email" required>
+        </label>
+        <label>Senha
+          <span class="password-field">
+            <input name="password" type="password" autocomplete="new-password" minlength="6" required>
+            <button class="password-toggle" type="button" data-password-toggle aria-label="Mostrar senha" title="Mostrar senha">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </button>
+          </span>
+        </label>
+        <button class="start-button" type="submit">Solicitar acesso</button>
+        <small>Seu cadastro fica aguardando libera&ccedil;&atilde;o do administrador.</small>
+      </form>
+    </section>
+    </div>
+  </main>
+  <script src="/auth.js"></script>
+</body>
+</html>

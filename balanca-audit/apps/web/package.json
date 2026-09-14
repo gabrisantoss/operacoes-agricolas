@@ -1,0 +1,26 @@
+{
+  "name": "@balanca/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 8873 --strictPort",
+    "build": "tsc -p tsconfig.json && vite build",
+    "start": "node scripts/serve-dist.mjs",
+    "preview": "vite preview --host 127.0.0.1 --port 8873 --strictPort",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@balanca/shared": "*",
+    "lucide-react": "^0.468.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.8.3",
+    "vite": "^6.0.7"
+  }
+}
