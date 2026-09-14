@@ -1,0 +1,2 @@
+# Unified and tested demonstration dependencies.
+-r ../requirements-demo.txt

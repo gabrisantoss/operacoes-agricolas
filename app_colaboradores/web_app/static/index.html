@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Operações Agrícolas | Gestão de CNH</title>
+    <link rel="icon" href="/assets/logo.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+<div class="portfolio-notice" role="note">Operações Agrícolas · Demonstração de portfólio · Todos os dados são fictícios</div>
+    <div class="app-shell">
+      <header class="hero">
+        <div class="brand-block">
+          <div class="brand-mark">
+            <img src="/assets/logo.svg" alt="OA" />
+          </div>
+          <div>
+            <h1>Gestão de CNH</h1>
+          </div>
+        </div>
+        <div class="hero-actions">
+          <button class="admin-link" data-action="open-auditoria" type="button">Auditoria</button>
+          <a class="launcher-button" data-launcher-link href="http://127.0.0.1:8890/">Launcher</a>
+          <div class="hero-panel">
+            <span class="status-dot"></span>
+            <div>
+              <strong id="serverStatus">Carregando...</strong>
+              <small id="dbInfo">Banco conectado</small>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <nav class="tabs" aria-label="Abas do sistema">
+        <button class="tab active" data-tab="cnh">CNH</button>
+        <button class="tab" data-tab="consulta">Consulta</button>
+        <button class="tab" data-tab="cadastro">Cadastro</button>
+        <button class="tab" data-tab="escala">Escala</button>
+        <button class="tab" data-tab="relatorios">Relatórios</button>
+      </nav>
+
+      <main>
+        <section id="dashboard" class="tab-panel">
+          <div class="section-heading">
+            <div>
+              <span class="section-kicker">Visão geral</span>
+              <h2>Painel operacional de RH</h2>
+            </div>
+            <button class="secondary-button" data-action="refresh">Atualizar</button>
+          </div>
+          <div class="dashboard-hero">
+            <div>
+              <span class="section-kicker">Resumo do dia</span>
+              <h3 id="dashboardSummaryTitle">Carregando indicadores</h3>
+              <p id="dashboardSummaryText">Aguarde enquanto o painel consulta os dados do gestor.</p>
+            </div>
+            <div class="dashboard-hero-metrics">
+              <span><strong id="dashboardActiveCount">0</strong> ativos</span>
+              <span><strong id="dashboardCnhCount">0</strong> CNH</span>
+              <span><strong id="dashboardDocsCount">0</strong> docs</span>
+            </div>
+          </div>
+          <div id="dashboardCards" class="kpi-grid"></div>
+          <div class="priority-strip" aria-label="Prioridades do painel">
+            <button class="priority-card priority-warning" data-tab="cnh" type="button">
+              <span class="priority-label">CNH</span>
+              <strong id="priorityCnhCount">0</strong>
+              <small id="priorityCnhText">pendências para acompanhar</small>
+            </button>
+            <button class="priority-card priority-gold" data-tab="pendencias" type="button">
+              <span class="priority-label">Documentos</span>
+              <strong id="priorityDocsCount">0</strong>
+              <small id="priorityDocsText">vencimentos próximos</small>
+            </button>
+            <button class="priority-card priority-blue" data-tab="consulta" type="button">
+              <span class="priority-label">Cadastro</span>
+              <strong id="priorityCadastroCount">0</strong>
+              <small id="priorityCadastroText">itens para revisar</small>
+            </button>
+          </div>
+          <div class="content-grid dashboard-grid">
+            <article class="surface">
+              <div class="surface-heading">
+                <h3>CNHs críticas</h3>
+                <span id="criticalCount" class="badge neutral">0 itens</span>
+              </div>
+              <div class="table-wrap small">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Código</th>
+                      <th>Nome</th>
+                      <th>Validade</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="criticalCnhBody"></tbody>
+                </table>
+              </div>
+            </article>
+            <article class="surface">
+              <div class="surface-heading">
+                <h3>Documentos a vencer</h3>
+                <span class="badge warning">30 dias</span>
+              </div>
+              <div id="documentsDueList" class="list-stack"></div>
+            </article>
+            <article class="surface dashboard-actions-card">
+              <div class="surface-heading">
+                <h3>Ações rápidas</h3>
+                <span class="badge neutral">RH</span>
+              </div>
+              <div class="dashboard-action-list">
+                <button class="dashboard-action" data-tab="pendencias" type="button">
+                  <strong>Revisar pendências</strong>
+                  <span>CNH, documentos e cadastros incompletos.</span>
+                </button>
+                <button class="dashboard-action" data-tab="cnh" type="button">
+                  <strong>Abrir Central CNH</strong>
+                  <span>Filtrar, acompanhar cobranças e registrar ações.</span>
+                </button>
+                <button class="dashboard-action" data-tab="relatorios" type="button">
+                  <strong>Gerar relatórios</strong>
+                  <span>Exportar painel, cobrança e PDF por frente.</span>
+                </button>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section id="pendencias" class="tab-panel">
+          <div class="section-heading">
+            <div>
+              <span class="section-kicker">Pendências</span>
+              <h2>Fila de atenção do RH</h2>
+            </div>
+            <button class="secondary-button" data-action="load-pendencias">Atualizar</button>
+          </div>
+          <div id="pendingCards" class="kpi-grid compact-kpis"></div>
+          <div class="content-grid three-columns pending-grid">
+            <article class="surface">
+              <div class="surface-heading">
+                <h3>CNH pendente</h3>
+                <span id="pendingCnhCount" class="badge neutral">0 itens</span>
+              </div>
+              <div id="pendingCnhList" class="list-stack pending-list"></div>
+            </article>
+            <article class="surface">
+              <div class="surface-heading">
+                <h3>Documentos</h3>
+                <span id="pendingDocsCount" class="badge warning">0 itens</span>
+              </div>
+              <div id="pendingDocsList" class="list-stack pending-list"></div>
+            </article>
+            <article class="surface">
+              <div class="surface-heading">
+                <h3>Cadastro</h3>
+                <span id="pendingCadastroCount" class="badge neutral">0 itens</span>
+              </div>
+              <div id="pendingCadastroList" class="list-stack pending-list"></div>
+            </article>
+          </div>
+        </section>
+
+        <section id="cnh" class="tab-panel active">
+          <div class="cnh-toolbar">
+            <div class="cnh-workbench-actions">
+              <button class="secondary-button" data-action="load-cnh" type="button">Atualizar fila</button>
+              <a class="secondary-button" href="/api/exportar/cobranca-cnh">Exportar cobrança</a>
+              <a class="secondary-button" href="/api/exportar/painel-cnh">Exportar painel</a>
+            </div>
+          </div>
+
+          <div class="cnh-priority-strip" aria-label="Resumo operacional de CNH">
+            <button class="cnh-priority-card danger" data-cnh-status="VENCIDA" type="button">
+              <span>Vencidas</span>
+              <strong id="cnhCountVencida">0</strong>
+              <small>impedem conformidade</small>
+            </button>
+            <button class="cnh-priority-card danger-soft" data-cnh-status="SEM_VALIDADE" type="button">
+              <span>Sem validade</span>
+              <strong id="cnhCountSemValidade">0</strong>
+              <small>data ausente</small>
+            </button>
+            <button class="cnh-priority-card danger-soft" data-cnh-status="DATA_INVALIDA" type="button">
+              <span>Data inválida</span>
+              <strong id="cnhCountDataInvalida">0</strong>
+              <small>corrigir cadastro</small>
+            </button>
+            <button class="cnh-priority-card warning" data-cnh-status="CRITICA_7_DIAS" type="button">
+              <span>7 dias</span>
+              <strong id="cnhCountCritica">0</strong>
+              <small>ação imediata</small>
+            </button>
+            <button class="cnh-priority-card caution" data-cnh-status="ALERTA_30_DIAS" type="button">
+              <span>30 dias</span>
+              <strong id="cnhCountAlerta">0</strong>
+              <small>planejar renovação</small>
+            </button>
+            <button class="cnh-priority-card neutral" data-cnh-filter="inconsistencias" type="button">
+              <span>Inconsistências</span>
+              <strong id="cnhCountInconsistencias">0</strong>
+              <small>cadastro para revisar</small>
+            </button>
+          </div>
+
+          <div class="content-grid cnh-attention-grid">
+            <article class="surface cnh-attention-panel">
+              <div class="surface-heading">
+                <h3>Próximas ações de CNH</h3>
+                <span id="cnhActionCount" class="badge neutral">0 itens</span>
+              </div>
+              <div id="cnhActionQueue" class="list-stack compact-list"></div>
+            </article>
+            <article class="surface cnh-attention-panel">
+              <div class="surface-heading">
+                <h3>Documentos a vencer</h3>
+                <span id="cnhDocsCount" class="badge warning">30 dias</span>
+              </div>
+              <div id="cnhDocumentsDueList" class="list-stack compact-list"></div>
+            </article>
+          </div>
+
+          <div class="filters-bar">
+            <label>
+              Buscar
+              <input id="cnhSearch" type="search" placeholder="Nome, código, frente ou gestor..." />
+            </label>
+            <label>
+              Status técnico
+              <select id="cnhStatusTecnico"></select>
+            </label>
+            <label>
+              Acompanhamento
+              <select id="cnhStatusAcomp"></select>
+            </label>
+            <label>
+              Frente
+              <select id="cnhFrente"></select>
+            </label>
+            <label>
+              Gestor
+              <select id="cnhGestor"></select>
+            </label>
+            <label class="check-line">
+              <input id="cnhPendentes" type="checkbox" checked />
+              Somente fila operacional
+            </label>
+            <button class="primary-button" data-action="load-cnh">Filtrar</button>
+          </div>
+
+          <div class="content-grid cnh-layout">
+            <article class="surface">
+              <div class="surface-heading">
+                <h3>Lista CNH</h3>
+                <span id="cnhTotal" class="badge neutral">0 registros</span>
+              </div>
+              <div class="bulk-actions" id="cnhBulkBar">
+                <label class="check-line compact">
+                  <input id="cnhSelectAll" type="checkbox" />
+                  Visíveis
+                </label>
+                <span id="cnhSelectedCount" class="badge neutral">0 selecionados</span>
+                <select id="cnhBulkStatus"></select>
+                <input id="cnhBulkResponsavel" placeholder="Responsável" />
+                <input id="cnhBulkDataPrevista" type="date" />
+                <input id="cnhBulkObs" placeholder="Observação" />
+                <label class="check-line compact">
+                  <input id="cnhBulkContato" type="checkbox" />
+                  Contato
+                </label>
+                <button class="primary-button" data-action="apply-cnh-bulk" type="button" disabled>Aplicar</button>
+              </div>
+              <div class="table-wrap tall">
+                <table>
+                  <thead>
+                    <tr>
+                      <th class="select-col"></th>
+                      <th>Prioridade</th>
+                      <th>Código</th>
+                      <th>Nome</th>
+                      <th>Frente</th>
+                      <th>Validade</th>
+                      <th>Categoria</th>
+                      <th>Status</th>
+                      <th>Acompanhamento</th>
+                      <th>Última ação</th>
+                      <th>Inconsistências</th>
+                    </tr>
+                  </thead>
+                  <tbody id="cnhTableBody"></tbody>
+                </table>
+              </div>
+              <button class="secondary-button table-more" data-action="load-more-cnh">Carregar mais</button>
+            </article>
+
+            <aside class="surface side-card" id="cnhDetail">
+              <div class="empty-state">Selecione um colaborador para acompanhar a CNH.</div>
+            </aside>
+          </div>
+        </section>
+
+        <section id="consulta" class="tab-panel">
+          <div class="filters-bar">
+            <label>
+              Buscar
+              <input id="consultaSearch" type="search" placeholder="Nome, código, CPF, função, frente..." />
+            </label>
+            <label>
+              Situação
+              <select id="consultaSituacao"></select>
+            </label>
+            <label>
+              Função
+              <select id="consultaFuncao"></select>
+            </label>
+            <label>
+              Cidade
+              <select id="consultaCidade"></select>
+            </label>
+            <label>
+              Turno
+              <select id="consultaTurno"></select>
+            </label>
+            <label class="check-line">
+              <input id="consultaCnhVencida" type="checkbox" />
+              CNH vencida
+            </label>
+            <button class="primary-button" id="consultaFilterBtn" data-action="load-colaboradores">Filtrar</button>
+            <button class="secondary-button" id="consultaClearBtn" data-action="clear-consulta-filters" title="Limpar filtros" style="display:none;">✕ Limpar</button>
+          </div>
+
+          <div class="content-grid consulta-layout">
+            <article class="surface">
+              <div class="surface-heading">
+                <div style="display: flex; gap: 8px; align-items: center;">
+                  <h3>Resultado</h3>
+                  <span id="consultaTotal" class="badge neutral">0 registros</span>
+                </div>
+                <div style="display: flex; gap: 6px; align-items: center;">
+                  <button class="secondary-button" id="consultaExportBtn" data-action="export-consulta-csv" title="Exportar lista filtrada como CSV">↓ CSV</button>
+                  <button class="secondary-button" data-action="new-colaborador">Novo colaborador</button>
+                </div>
+              </div>
+              <div class="table-wrap tall">
+                <table>
+                  <thead>
+                    <tr>
+                      <th class="sortable" data-sort="codigo_colaborador">Código <span class="sort-icon">↕</span></th>
+                      <th class="sortable" data-sort="nome">Nome <span class="sort-icon">↕</span></th>
+                      <th>Situação</th>
+                      <th class="sortable" data-sort="funcao_safra">Função <span class="sort-icon">↕</span></th>
+                      <th class="sortable" data-sort="frente_safra">Frente <span class="sort-icon">↕</span></th>
+                      <th class="sortable" data-sort="cidade">Cidade <span class="sort-icon">↕</span></th>
+                      <th class="sortable" data-sort="validade_cnh">CNH <span class="sort-icon">↕</span></th>
+                    </tr>
+                  </thead>
+                  <tbody id="consultaTableBody"></tbody>
+                </table>
+              </div>
+              <button class="secondary-button table-more" data-action="load-more-colaboradores">Carregar mais</button>
+            </article>
+
+            <aside class="surface side-card" id="consultaDetail">
+              <div class="empty-state">Selecione um colaborador para ver o resumo sem sair da consulta.</div>
+            </aside>
+          </div>
+        </section>
+
+        <section id="escala" class="tab-panel">
+          <div class="section-heading">
+            <div>
+              <span class="section-kicker">Escala</span>
+              <h2>Escala oficial 2026</h2>
+            </div>
+            <button class="secondary-button" data-action="load-escala">Atualizar escala</button>
+          </div>
+
+          <div class="content-grid escala-layout">
+            <article class="surface">
+              <div class="surface-heading">
+                <h3>Frentes organizadas por frota e turno</h3>
+                <span id="escalaTotal" class="badge neutral">0 pessoas</span>
+              </div>
+              <div id="escalaGroups" class="escala-groups"></div>
+            </article>
+            <aside class="surface side-card" id="escalaSummary">
+              <h3>Resumo</h3>
+              <div class="empty-state">Carregue a escala para ver os totais.</div>
+            </aside>
+          </div>
+        </section>
+
+        <section id="cadastro" class="tab-panel">
+
+          <!-- Barra de identidade do colaborador -->
+          <div class="cadastro-identity" id="cadastroIdentity">
+            <div class="cadastro-identity-info">
+              <span class="cadastro-identity-avatar" id="cadastroAvatar">?</span>
+              <div>
+                <strong id="cadastroNomeDisplay">Nenhum colaborador selecionado</strong>
+                <span id="cadastroSubDisplay" class="cadastro-identity-sub">Preencha o formulário abaixo para cadastrar um novo colaborador</span>
+              </div>
+            </div>
+            <div class="cadastro-identity-actions">
+              <span id="cadastroUnsavedBadge" class="unsaved-badge" style="display:none">● Alterações não salvas</span>
+              <button class="secondary-button" data-action="new-colaborador">Novo cadastro</button>
+            </div>
+          </div>
+
+          <form id="colaboradorForm" class="surface form-shell">
+            <input type="hidden" name="original_codigo" />
+            <div class="form-section">
+              <h3>Dados principais</h3>
+              <div class="form-grid">
+                <label>Código<input name="codigo_colaborador" required /></label>
+                <label>Nome<input name="nome" required /></label>
+                <label>Situação<select id="cadastroSituacao" name="situacao"></select></label>
+                <label>Modalidade<input name="modalidade" /></label>
+                <label>Apelido<input name="apelido" /></label>
+                <label>Telefone<input name="telefone" /></label>
+              </div>
+            </div>
+            <div class="form-section">
+              <h3>Informações pessoais</h3>
+              <div class="form-grid">
+                <label>CPF<input name="cpf" /></label>
+                <label>RG<input name="rg" /></label>
+                <label>Nascimento<input name="nascimento" type="date" /></label>
+                <label>Município<input name="municipio" /></label>
+                <label>Cidade<input name="cidade" /></label>
+              </div>
+            </div>
+            <div class="form-section">
+              <h3>Dados profissionais</h3>
+              <div class="form-grid">
+                <label>Função<input name="funcao" /></label>
+                <label>Gestor responsável<input name="gestor_responsavel" /></label>
+                <label>Admissão<input name="data_admissao" type="date" /></label>
+                <label>Salário<input name="salario" type="number" step="0.01" /></label>
+                <label>Local de trabalho<input name="local_trabalho" /></label>
+              </div>
+            </div>
+            <div class="form-section">
+              <h3>CNH e safra</h3>
+              <div class="form-grid">
+                <label>Registro CNH<input name="registro_cnh" /></label>
+                <label>Categoria<input name="categoria_cnh" /></label>
+                <label>Validade CNH<input name="validade_cnh" type="date" /></label>
+                <label>Primeira CNH<input name="primeira_cnh" type="date" /></label>
+                <label>Frente<select id="cadastroFrente" name="frente_safra"></select></label>
+                <label>Turno<select id="cadastroTurno" name="turno_safra"></select></label>
+                <label>Função safra<select id="cadastroFuncaoSafra" name="funcao_safra"></select></label>
+                <label>Horário<input name="horario" /></label>
+              </div>
+            </div>
+            <div class="form-section">
+              <h3>Observações</h3>
+              <div class="form-grid observations">
+                <label>Observação 1<textarea name="observacao_1"></textarea></label>
+                <label>Observação 2<textarea name="observacao_2"></textarea></label>
+                <label>Observação 3<textarea name="observacao_3"></textarea></label>
+                <label>Observação 4<textarea name="observacao_4"></textarea></label>
+                <label>Observação 5<textarea name="observacao_5"></textarea></label>
+              </div>
+            </div>
+
+            <!-- Rodapé do formulário com Salvar + Excluir separados -->
+            <div class="form-footer">
+              <button class="danger-button" data-action="delete-colaborador" type="button" id="cadastroDeleteBtn">&#x1F5D1; Excluir colaborador</button>
+              <button class="primary-button form-save-btn" type="submit">&#10003; Salvar colaborador</button>
+            </div>
+          </form>
+
+          <div class="content-grid three-columns attachments-grid">
+            <article class="surface">
+              <div class="surface-heading"><h3>Documentos</h3></div>
+              <form id="documentForm" class="stack-form">
+                <input type="hidden" name="codigo_colaborador" />
+                <label>Nome do documento<input name="nome_documento" placeholder="Ex.: CNH, comprovante..." /></label>
+                <label>Validade<input name="data_validade" type="date" /></label>
+                <label>Arquivo<input name="arquivo" type="file" /></label>
+                <button class="secondary-button full" type="submit">Adicionar documento</button>
+              </form>
+              <div id="documentList" class="list-stack"></div>
+            </article>
+            <article class="surface">
+              <div class="surface-heading"><h3>Atestados</h3></div>
+              <form id="atestadoForm" class="stack-form">
+                <input type="hidden" name="codigo_colaborador" />
+                <label>Início<input name="data_inicio" type="date" /></label>
+                <label>Fim<input name="data_fim" type="date" /></label>
+                <label>Motivo<input name="motivo" /></label>
+                <label>Arquivo<input name="arquivo" type="file" /></label>
+                <button class="secondary-button full" type="submit">Adicionar atestado</button>
+              </form>
+              <div id="atestadoList" class="list-stack"></div>
+            </article>
+            <article class="surface">
+              <div class="surface-heading"><h3>Advertências</h3></div>
+              <form id="advertenciaForm" class="stack-form">
+                <input type="hidden" name="codigo_colaborador" />
+                <label>Data<input name="data_infracao" type="date" /></label>
+                <label>Tipo<input name="tipo_infracao" /></label>
+                <label>Descrição<textarea name="descricao"></textarea></label>
+                <label>Arquivo<input name="arquivo" type="file" /></label>
+                <button class="secondary-button full" type="submit">Adicionar advertência</button>
+              </form>
+              <div id="advertenciaList" class="list-stack"></div>
+            </article>
+          </div>
+        </section>
+
+        <section id="relatorios" class="tab-panel">
+          <div class="content-grid three-columns report-grid">
+            <a class="report-card" href="/api/exportar/painel-cnh">
+              <span class="report-icon">CNH</span>
+              <span class="report-format">XLSX</span>
+              <strong>Painel CNH</strong>
+              <span>Lista completa com prioridade, status e inconsistências.</span>
+              <small>Uso recomendado: análise geral e auditoria interna.</small>
+              <em>Baixar planilha</em>
+            </a>
+            <a class="report-card" href="/api/exportar/cobranca-cnh">
+              <span class="report-icon">COB</span>
+              <span class="report-format">XLSX</span>
+              <strong>Cobrança CNH</strong>
+              <span>Somente pendências para cobrança e acompanhamento.</span>
+              <small>Uso recomendado: rotina de follow-up por responsável.</small>
+              <em>Baixar planilha</em>
+            </a>
+            <a class="report-card" href="/api/exportar/cnh-vencidas-pdf">
+              <span class="report-icon">PDF</span>
+              <span class="report-format">PDF</span>
+              <strong>CNHs vencidas por frente</strong>
+              <span>Resumo, totais por frente e lista de cobrança.</span>
+              <small>Inclui responsável, acompanhamento, frente, turno e dias vencidos.</small>
+              <em>Baixar PDF</em>
+            </a>
+            <article class="report-card muted">
+              <span class="report-icon">DB</span>
+              <span class="report-format">LOCAL</span>
+              <strong>Banco conectado</strong>
+              <span id="reportDbPath">Base local protegida e sincronizada com o gestor.</span>
+              <small>Os arquivos são gerados sob demanda no computador servidor.</small>
+            </article>
+          </div>
+        </section>
+
+        <section id="auditoria" class="tab-panel">
+          <div class="section-heading">
+            <div>
+              <span class="section-kicker">Auditoria</span>
+              <h2>Histórico de alterações</h2>
+            </div>
+            <button class="secondary-button" data-action="load-auditoria">Atualizar</button>
+          </div>
+          <div class="filters-bar">
+            <label>Tipo<input id="auditTipo" /></label>
+            <label>Entidade<input id="auditEntidade" /></label>
+            <label>ID<input id="auditId" /></label>
+            <label>Limite<input id="auditLimit" type="number" value="200" /></label>
+            <button class="primary-button" data-action="load-auditoria">Filtrar</button>
+          </div>
+          <article class="surface">
+            <div class="table-wrap tall">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Ação</th>
+                    <th>Entidade</th>
+                    <th>ID</th>
+                    <th>Detalhes</th>
+                  </tr>
+                </thead>
+                <tbody id="auditTableBody"></tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+      </main>
+
+      <footer>Desenvolvido por <strong>Gabriel Barbosa dos Santos</strong></footer>
+    </div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="app.js"></script>
+  </body>
+</html>

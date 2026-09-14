@@ -1,0 +1,31 @@
+name: Source and build checks
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Publication file gate
+        run: python scripts/check_portfolio.py
+      - name: Python syntax
+        run: python -m compileall -q agricola_shared launcher_web app_notas app_colaboradores analises scripts demo.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: balanca-audit/package-lock.json
+      - run: npm install -g npm@11
+      - name: Install JavaScript dependencies
+        working-directory: balanca-audit
+        run: npm ci --ignore-scripts
+      - name: Build all workspaces
+        working-directory: balanca-audit
+        run: npm run build
+      - name: Dependency audit
+        working-directory: balanca-audit
+        run: npm audit --audit-level=high

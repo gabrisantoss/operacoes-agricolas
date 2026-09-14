@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Operações Agrícolas | Sistema de Notas Web</title>
+  <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div class="portfolio-notice" role="note">Operações Agrícolas · Demonstração de portfólio · Todos os dados são fictícios</div>
+  <main class="app-shell">
+    <header class="app-header">
+      <div class="brand-row">
+        <div class="brand-mark">
+          <img src="/assets/logo.svg" alt="OA">
+        </div>
+        <div class="brand-copy">
+          <h1>Operações Agrícolas</h1>
+          <p>Sistema de Notas e Transporte</p>
+        </div>
+      </div>
+      <div class="status-strip">
+        <a class="launcher-button" data-launcher-link href="http://127.0.0.1:8890/">Launcher</a>
+        <span id="serverBadge">Online</span>
+        <span id="syncBadge" class="sync-badge">Sync: verificando</span>
+        <span id="peopleBadge" class="people-badge">Colab: verificando</span>
+        <strong id="todayBadge">Hoje: 0</strong>
+        <strong id="totalBadge">Total: 0</strong>
+      </div>
+    </header>
+
+    <nav class="tabs" aria-label="Navegacao principal">
+      <button class="tab-button active" data-tab="lancamento" type="button">Lancamento</button>
+      <button class="tab-button" data-tab="historico" type="button">Historico</button>
+      <button class="tab-button" data-tab="relatorios" type="button">BI e Relatorios</button>
+      <button class="tab-button" data-tab="cadastros" type="button">Cadastros</button>
+    </nav>
+
+    <section id="tab-lancamento" class="tab-panel active">
+      <div class="panel-title">
+        <div>
+          <h2>Novo Lancamento</h2>
+          <p>Viagem, carga e datas em uma tela unica.</p>
+        </div>
+        <label class="toggle">
+          <input id="keepLoad" type="checkbox">
+          <span>Manter carga</span>
+        </label>
+      </div>
+
+      <form id="noteForm" class="note-form">
+        <input id="editOriginal" type="hidden">
+        <fieldset>
+          <legend class="sr-only">Viagem</legend>
+          <div class="fieldset-title">Viagem</div>
+          <label>Numero da nota
+            <input id="numero" name="numero" inputmode="numeric" autocomplete="off" placeholder="000000" required>
+          </label>
+          <label>Motorista
+            <input id="motorista" name="motorista" list="motoristasList" autocomplete="off" placeholder="Codigo ou nome" required>
+          </label>
+          <label>Caminhao
+            <input id="caminhao" name="caminhao" autocomplete="off" placeholder="Placa ou identificacao">
+          </label>
+          <label>Operador
+            <input id="operador" name="operador" list="motoristasList" autocomplete="off" placeholder="Operador da colhedora">
+          </label>
+          <label class="span-2">Colhedora
+            <input id="colhedora" name="colhedora" autocomplete="off" placeholder="Numero da colhedora">
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend class="sr-only">Carga</legend>
+          <div class="fieldset-title">Carga</div>
+          <label>Fazenda muda
+            <input id="fazMuda" name="faz_muda" list="fazendasList" autocomplete="off" placeholder="Fazenda de origem">
+          </label>
+          <label>Talhao
+            <input id="talhao" name="talhao" list="talhoesList" autocomplete="off" placeholder="Talhao">
+          </label>
+          <label>Fazenda plantio
+            <input id="fazPlantio" name="faz_plantio" list="fazendasList" autocomplete="off" placeholder="Fazenda de destino" required>
+          </label>
+          <label>Variedade
+            <input id="variedade" name="variedade" list="variedadesList" autocomplete="off" placeholder="Variedade" required>
+          </label>
+          <label>Data colheita
+            <input id="dataColheita" name="data_colheita" type="date" required>
+          </label>
+          <label>Data plantio
+            <input id="dataPlantio" name="data_plantio" type="date" required>
+          </label>
+        </fieldset>
+
+        <div class="form-actions">
+          <button class="secondary" id="clearButton" type="button">Limpar</button>
+          <button class="primary" id="saveButton" type="submit">Lancar nota</button>
+        </div>
+      </form>
+    </section>
+
+    <section id="tab-historico" class="tab-panel">
+      <div class="panel-title">
+        <div>
+          <h2>Historico Operacional</h2>
+          <p>Filtre, revise, edite e exporte as notas lancadas.</p>
+        </div>
+        <span id="historyCount" class="metric-badge">0 registros</span>
+      </div>
+
+      <div class="toolbar">
+        <input id="historySearch" placeholder="Pesquisar nota, motorista, origem ou destino...">
+        <select id="historyField">
+          <option value="todos">Todos os campos</option>
+          <option value="nota">Nota</option>
+          <option value="motorista">Motorista</option>
+          <option value="operador">Operador</option>
+          <option value="origem">Origem</option>
+          <option value="destino">Destino</option>
+          <option value="variedade">Variedade</option>
+        </select>
+        <input id="historyStart" type="date">
+        <input id="historyEnd" type="date">
+        <button id="historyFilter" class="primary" type="button">Filtrar</button>
+        <button id="historyAll" class="secondary" type="button">Todos</button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Nota</th>
+              <th>Motorista</th>
+              <th>Caminhao</th>
+              <th>Operador</th>
+              <th>Col</th>
+              <th>Origem</th>
+              <th>Talhao</th>
+              <th>Destino</th>
+              <th>Variedade</th>
+              <th>Dt.Col</th>
+              <th>Acoes</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="tab-relatorios" class="tab-panel">
+      <div class="panel-title">
+        <div>
+          <h2>BI e Relatorios</h2>
+          <p>Indicadores do periodo, rankings e arquivos para baixar.</p>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <input id="reportStart" type="date">
+        <input id="reportEnd" type="date">
+        <button id="reportRefresh" class="primary" type="button">Atualizar</button>
+        <button id="exportRaw" class="secondary" type="button">Excel bruto</button>
+        <button id="exportFlow" class="secondary" type="button">Excel fluxo</button>
+        <button class="secondary pdf-button" data-type="diario" type="button">PDF diario</button>
+        <button class="secondary pdf-button" data-type="geral" type="button">PDF geral</button>
+        <button class="secondary pdf-button" data-type="simples" type="button">PDF simples</button>
+        <button class="secondary pdf-button" data-type="plantio_detalhado" type="button">PDF plantio detalhado</button>
+      </div>
+
+      <div class="kpi-grid">
+        <article><span>Total de viagens</span><strong id="kpiTotal">0</strong></article>
+        <article><span>Media no periodo</span><strong id="kpiMedia">0/dia</strong></article>
+        <article><span>Dias com movimento</span><strong id="kpiDias">0</strong></article>
+      </div>
+      <div id="rankingGrid" class="ranking-grid"></div>
+    </section>
+
+    <section id="tab-cadastros" class="tab-panel">
+      <div class="panel-title">
+        <div>
+          <h2>Cadastros e Administracao</h2>
+          <p>Referencias, backups e correcao segura de datas.</p>
+        </div>
+      </div>
+
+      <div class="admin-grid">
+        <article class="admin-card">
+          <h3>Motoristas</h3>
+          <div class="inline-form">
+            <input id="motCodigo" placeholder="Codigo">
+            <input id="motNome" placeholder="Nome">
+            <button class="primary" data-create="motoristas" type="button">Adicionar</button>
+          </div>
+          <input class="cadastro-filter" data-table="motoristas" placeholder="Filtrar motoristas">
+          <div id="motoristasListBox" class="mini-list"></div>
+        </article>
+
+        <article class="admin-card">
+          <h3>Fazendas</h3>
+          <div class="inline-form">
+            <input id="fazCodigo" placeholder="Codigo">
+            <input id="fazNome" placeholder="Nome">
+            <button class="primary" data-create="fazendas" type="button">Adicionar</button>
+          </div>
+          <input class="cadastro-filter" data-table="fazendas" placeholder="Filtrar fazendas">
+          <div id="fazendasListBox" class="mini-list"></div>
+        </article>
+
+        <article class="admin-card">
+          <h3>Variedades</h3>
+          <div class="inline-form">
+            <input id="varNome" placeholder="Nome da variedade">
+            <button class="primary" data-create="variedades" type="button">Adicionar</button>
+          </div>
+          <input class="cadastro-filter" data-table="variedades" placeholder="Filtrar variedades">
+          <div id="variedadesListBox" class="mini-list"></div>
+        </article>
+
+        <article class="admin-card">
+          <h3>Backups</h3>
+          <div class="inline-form">
+            <button id="backupCreate" class="primary" type="button">Fazer backup</button>
+            <button id="backupRefresh" class="secondary" type="button">Atualizar</button>
+          </div>
+          <select id="backupSelect"></select>
+          <button id="backupRestore" class="danger" type="button">Restaurar selecionado</button>
+          <p id="backupInfo" class="hint"></p>
+        </article>
+
+        <article class="admin-card wide">
+          <h3>Correcao segura de datas</h3>
+          <div class="correction-grid">
+            <textarea id="correctionNotes" placeholder="Notas separadas por virgula, espaco ou linha"></textarea>
+            <select id="correctionAction">
+              <option value="colheita_para_plantio">Data de colheita = data de plantio</option>
+              <option value="definir_colheita">Definir data de colheita</option>
+              <option value="definir_plantio">Definir data de plantio</option>
+              <option value="definir_ambas">Definir as duas datas</option>
+            </select>
+            <input id="correctionDate" type="date">
+            <input id="correctionReason" placeholder="Motivo">
+            <button id="correctionPreview" class="secondary" type="button">Prever</button>
+            <button id="correctionApply" class="danger" type="button">Aplicar</button>
+          </div>
+          <div id="correctionResult" class="mini-list"></div>
+        </article>
+      </div>
+    </section>
+
+    <footer class="app-footer">
+      <span>Desenvolvido por</span>
+      <strong>Gabriel Barbosa dos Santos</strong>
+    </footer>
+
+    <datalist id="motoristasList"></datalist>
+    <datalist id="fazendasList"></datalist>
+    <datalist id="talhoesList"></datalist>
+    <datalist id="variedadesList"></datalist>
+  </main>
+
+  <dialog id="duplicateDialog">
+    <form method="dialog">
+      <h3>Nota ja existente</h3>
+      <p id="duplicateMessage"></p>
+      <div class="dialog-actions">
+        <button value="cancel" class="secondary">Cancelar</button>
+        <button value="duplicate" class="primary">Duplicar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="referenceAuditDialog" class="wide-dialog">
+    <form method="dialog">
+      <h3 id="referenceAuditTitle">Origem da nota</h3>
+      <div id="referenceAuditContent" class="audit-dialog-body"></div>
+      <div class="dialog-actions">
+        <button value="close" class="secondary">Fechar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="/app.js"></script>
+</body>
+</html>

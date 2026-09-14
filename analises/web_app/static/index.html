@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Operações Agrícolas | Analises Web</title>
+  <link rel="icon" href="/static/assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div class="portfolio-notice" role="note">Operações Agrícolas · Demonstração de portfólio · Todos os dados são fictícios</div>
+  <header class="app-header">
+    <div class="brand-row">
+      <div class="brand-mark">
+        <img src="/static/assets/logo.svg" alt="OA">
+      </div>
+      <div class="brand-copy">
+        <h1>Operações Agrícolas</h1>
+        <p>Analises Operacionais</p>
+        <small id="lastUpdate">Conectando ao servidor...</small>
+      </div>
+    </div>
+    <div class="header-actions">
+      <a class="launcher-button" data-launcher-link href="http://127.0.0.1:8890/">Launcher</a>
+      <button id="refreshAll" class="icon-button" type="button" title="Atualizar">Atualizar</button>
+      <div class="status-pill" id="serverStatus">Online</div>
+    </div>
+  </header>
+
+  <nav class="tabs" aria-label="Navegacao">
+    <button class="tab active" data-tab="dashboard">Dashboard</button>
+    <button class="tab" data-tab="dados">Dados</button>
+    <button class="tab" data-tab="lancamento">Lancamento</button>
+    <button class="tab" data-tab="relatorios">Relatorios</button>
+  </nav>
+
+  <main>
+    <section class="panel filters-panel" aria-label="Filtros">
+      <div class="field">
+        <label for="filterStart">Data inicial</label>
+        <input id="filterStart" type="date">
+      </div>
+      <div class="field">
+        <label for="filterEnd">Data final</label>
+        <input id="filterEnd" type="date">
+      </div>
+      <div class="field">
+        <label for="filterFrente">Frente</label>
+        <select id="filterFrente"></select>
+      </div>
+      <div class="field">
+        <label for="filterTurno">Turno</label>
+        <select id="filterTurno"></select>
+      </div>
+      <div class="field">
+        <label for="filterStatus">Status</label>
+        <select id="filterStatus">
+          <option value="">Todos</option>
+          <option value="Finalizada">Finalizada</option>
+          <option value="Em Andamento">Em andamento</option>
+        </select>
+      </div>
+      <div class="field wide">
+        <label for="filterFrota">Frota</label>
+        <select id="filterFrota"></select>
+      </div>
+      <div class="field wide">
+        <label for="filterSearch">Busca</label>
+        <input id="filterSearch" type="search" placeholder="motivo, frota, fazenda...">
+      </div>
+      <div class="filter-actions">
+        <button id="applyFilters" class="primary" type="button">Aplicar</button>
+        <button id="clearFilters" class="secondary" type="button">Limpar</button>
+      </div>
+    </section>
+
+    <section id="dashboard" class="view active">
+      <div class="metrics-grid">
+        <article class="metric">
+          <span>Registros</span>
+          <strong id="metricTotal">0</strong>
+          <small>no filtro atual</small>
+        </article>
+        <article class="metric accent-green">
+          <span>Eficiencia media</span>
+          <strong id="metricEfficiency">0%</strong>
+          <small>finalizadas</small>
+        </article>
+        <article class="metric accent-blue">
+          <span>Horas paradas</span>
+          <strong id="metricHours">00:00</strong>
+          <small>colhedora/transbordo</small>
+        </article>
+        <article class="metric accent-amber">
+          <span>Em andamento</span>
+          <strong id="metricPending">0</strong>
+          <small>paradas abertas</small>
+        </article>
+        <article class="metric">
+          <span>Colhedoras</span>
+          <strong id="metricColhedora">0</strong>
+          <small>registros</small>
+        </article>
+        <article class="metric">
+          <span>Transbordos</span>
+          <strong id="metricTransbordo">0</strong>
+          <small>registros</small>
+        </article>
+      </div>
+
+      <div class="dashboard-grid">
+        <section class="panel data-panel">
+          <div class="panel-title">
+            <h2>Motivos com mais tempo parado</h2>
+            <span>Top 8</span>
+          </div>
+          <div id="topReasons" class="reason-list"></div>
+        </section>
+
+        <section class="panel data-panel">
+          <div class="panel-title">
+            <h2>Eficiencia por turno</h2>
+            <span>Media</span>
+          </div>
+          <div id="turnEfficiency" class="turn-list"></div>
+        </section>
+
+        <section class="panel data-panel wide-panel">
+          <div class="panel-title">
+            <h2>Paradas em andamento</h2>
+            <span id="pendingCountLabel">0 abertas</span>
+          </div>
+          <div id="pendingList" class="pending-list"></div>
+        </section>
+      </div>
+
+      <div class="panel compact-note">
+        <strong>Criterio operacional:</strong>
+        <span id="metricCriteria">Somente COLHEDORA e TRANSBORDO, 600 min por turno.</span>
+      </div>
+    </section>
+
+    <section id="dados" class="view">
+      <div class="table-toolbar">
+        <div>
+          <strong>Dados operacionais</strong>
+          <span id="tableCount">0 de 0 linhas</span>
+        </div>
+        <div class="toolbar-actions">
+          <button id="refreshTable" class="secondary" type="button">Atualizar</button>
+          <button id="loadMore" class="secondary" type="button">Carregar mais</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Frente</th>
+              <th>Turno</th>
+              <th>Frota</th>
+              <th>Motivo</th>
+              <th>Parou</th>
+              <th>Voltou</th>
+              <th>Total</th>
+              <th>Ef.%</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="operationsBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="lancamento" class="view">
+      <form id="operationForm" class="panel form-grid">
+        <div class="form-section-title">Novo lancamento operacional</div>
+        <div class="field">
+          <label for="formDate">Data</label>
+          <input id="formDate" name="data" type="date" required>
+        </div>
+        <div class="field">
+          <label for="formFrente">Frente</label>
+          <input id="formFrente" name="frente" list="frentesList" required>
+        </div>
+        <div class="field">
+          <label for="formTurno">Turno</label>
+          <select id="formTurno" name="turno" required>
+            <option value="1">1</option>
+            <option value="2">2</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="formStatus">Status</label>
+          <select id="formStatus" name="status">
+            <option value="Finalizada">Finalizada</option>
+            <option value="Em Andamento">Em andamento</option>
+          </select>
+        </div>
+        <div class="field wide">
+          <label for="formFrota">Frota</label>
+          <input id="formFrota" name="frota" list="frotasList" required>
+        </div>
+        <div class="field wide">
+          <label for="formMotivo">Motivo</label>
+          <input id="formMotivo" name="motivo">
+        </div>
+        <div class="field">
+          <label for="formParou">Parou</label>
+          <input id="formParou" name="parou_hora" type="time">
+        </div>
+        <div class="field" id="voltouField">
+          <label for="formVoltou">Voltou</label>
+          <input id="formVoltou" name="voltou_hora" type="time">
+        </div>
+        <div class="field">
+          <label for="formFundo">Fundo agricola</label>
+          <input id="formFundo" name="fundo_agricola">
+        </div>
+        <div class="field">
+          <label for="formChuva">Chuva</label>
+          <input id="formChuva" name="chuva">
+        </div>
+        <div class="field">
+          <label for="formIncendio">Incendio</label>
+          <input id="formIncendio" name="incendio">
+        </div>
+        <div class="form-actions">
+          <button class="primary" type="submit">Salvar lancamento</button>
+          <span id="formMessage" role="status"></span>
+        </div>
+      </form>
+      <datalist id="frentesList"></datalist>
+      <datalist id="frotasList"></datalist>
+    </section>
+
+    <section id="relatorios" class="view">
+      <div class="reports-grid">
+        <article class="report-card">
+          <h2>Operacao diaria</h2>
+          <p>Periodo e filtros atuais.</p>
+          <button id="downloadOperationPdf" class="primary" type="button">Baixar PDF</button>
+        </article>
+        <article class="report-card">
+          <h2>Eficiencia por frente</h2>
+          <p>Frentes, colhedoras e transbordos.</p>
+          <button id="downloadEfficiencyPdf" class="secondary" type="button">Baixar PDF</button>
+        </article>
+        <article class="report-card">
+          <h2>Banco completo</h2>
+          <p>Todas as tabelas em Excel.</p>
+          <button id="downloadDatabaseExcel" class="secondary" type="button">Baixar Excel</button>
+        </article>
+        <article class="report-card report-card-wide">
+          <h2>Status do sistema</h2>
+          <p>Banco, inicializacao e erros recentes.</p>
+          <button id="checkSystemStatus" class="secondary" type="button">Verificar</button>
+          <pre id="systemStatusBody" class="system-status-output">Aguardando verificacao.</pre>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <span>Desenvolvido por</span>
+    <strong>Gabriel Barbosa dos Santos</strong>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

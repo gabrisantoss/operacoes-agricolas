@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
+  <defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="#edf2df"/><stop offset="1" stop-color="#698e5f"/></linearGradient><pattern id="field" width="160" height="1000" patternUnits="userSpaceOnUse" patternTransform="rotate(20)"><path d="M0 0V1000" stroke="#e3dfad" stroke-width="25" opacity=".18"/></pattern></defs>
+  <path fill="url(#sky)" d="M0 0h1600v1000H0z"/><circle cx="1300" cy="180" r="100" fill="#fff7d4" opacity=".45"/>
+  <path d="M0 500Q500 250 1600 480V1000H0" fill="#668852"/><path d="M0 650Q700 390 1600 620V1000H0" fill="#365e3b"/>
+  <path fill="url(#field)" d="M0 480h1600v520H0z"/>
+</svg>
