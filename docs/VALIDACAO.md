@@ -34,21 +34,27 @@ O workflow do GitHub verifica arquivos versionados, sintaxe Python, compilação
 
 ## Central de relatórios e painel Safra
 
-A prévia e o PDF da central são gerados a partir do mesmo objeto calculado. Em relação ao painel Safra, as definições são compatíveis:
+A prévia e o PDF da central são gerados a partir do mesmo objeto calculado. A central separa três medidas de área:
 
-- **Cana entregue** é a soma do peso líquido das entradas; **cargas** é o número de entradas.
-- Fazenda e talhão usam as mesmas regras de identidade do painel: cadastro, código bruto e nome.
-- **TCH** é a cana entregue dividida pela área cadastrada dos talhões que têm área em hectares e em alqueires. A cobertura de área é informada. Talhões sem área entram na cana, mas não na área, como no painel.
-- Sem filtros, um teste automatizado confirma que os totais da central e do painel são iguais: cargas, cana, área, TCH e cobertura.
+- **Área cadastrada:** área do cadastro dos talhões que têm entregas no recorte. É um dado de cadastro e não comprova colheita.
+- **Área colhida comprovada:** área cadastrada apenas dos talhões cuja OS está **encerrada** e cujas entregas vinculadas a essa OS estão **todas** no recorte. Ter todas as entregas registradas dentro do período não basta: sem OS encerrada, a colheita pode continuar.
+- **TCH efetivo:** cana desses talhões comprovados dividida pela área colhida comprovada. Aparece como **N/D** quando nenhum talhão é comprovado. Quando só parte deles é comprovada, o indicador recebe o rótulo **"TCH efetivo parcial"**, informa a base (talhões e toneladas usados) e não representa a produtividade de todo o recorte.
+
+Cada talhão do relatório detalhado mostra sua situação: OS encerrada, OS encerrada fora do recorte, sem OS encerrada, mais de uma OS ou sem área cadastrada. A regra segue o Rateio de OS: a produção de uma OS são as entregas vinculadas a ela, e a área usada é a área cadastrada dos talhões da OS.
+
+Definições compartilhadas com o painel Safra: cana entregue (soma do peso líquido), cargas (número de entradas), regras de identidade de fazenda e talhão, e área cadastrada dos talhões com área em hectares e alqueires. Sem filtros, um teste automatizado confirma que cargas, talhões, cana e área cadastrada são iguais nos dois.
 
 Diferenças legítimas:
 
 | Aspecto | Painel Safra | Central de relatórios |
 | --- | --- | --- |
+| TCH | Toda a cana entregue ÷ área cadastrada dos talhões com área. É uma razão de acompanhamento e inclui talhões ainda em colheita | TCH efetivo só com talhões de colheita comprovada por OS encerrada; N/D ou "parcial" com a base informada |
+| Área | Área cadastrada dos talhões com entregas | Mostra a área cadastrada e, separadamente, a área colhida comprovada |
 | Período | Safra (ano) ou período do lote do PDF, por sobreposição | Data de referência da entrada (sem data, início do período do lote) |
 | Filtro de fazenda | Fazenda gravada na entrada | Também a fazenda do talhão vinculado |
-| TCH em período parcial | Calculado com a área total dos talhões | **N/D** quando um talhão tem entregas fora do período: a área colhida dentro dele não pode ser determinada pelos dados. Cana e cargas continuam válidas, assim como o TCH dos talhões com toda a colheita registrada no período |
 | Arredondamento | Três casas no servidor | Valor completo, formatado com três casas para tonelada e duas para área e TCH |
+
+Os testes de PDF da central leem o texto dos streams gerados pelo PDFKit, e não usam o `pdf-parse`. O pdf.js 1.10 embutido nele rejeita intermitentemente arquivos válidos, que Poppler e PDFium abrem sem erro.
 
 ## Limites
 

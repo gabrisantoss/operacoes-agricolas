@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { createRequire } from "node:module";
 import test, { after, before } from "node:test";
+import { extractPdfText } from "../testSupport/pdfText.js";
 import { createPostgresTestDatabase } from "../testSupport/postgresTestDatabase.js";
 
 process.env.NODE_ENV = "test";
@@ -10,15 +10,23 @@ if (!testDatabaseUrl) {
   test.skip("Cane report integration tests require BALANCA_TEST_DATABASE_URL", () => {});
 } else {
   const testDatabase = await createPostgresTestDatabase();
-  const { createCaneEntries, createFarm, createImportBatch, db, getHarvestExecutiveDashboard, listCaneReportRows, listFarms } =
-    await import("../db.js");
+  const {
+    closeOrder,
+    createCaneEntries,
+    createFarm,
+    createImportBatch,
+    createOrder,
+    db,
+    getHarvestExecutiveDashboard,
+    listCaneReportRows,
+    listFarms
+  } = await import("../db.js");
   const { loadCaneReport } = await import("../routes/reports.js");
   const { formatTons, renderCaneReportPdf } = await import("./caneReportPdf.js");
-  const require = createRequire(import.meta.url);
-  const pdfParse = require("pdf-parse") as (data: Buffer) => Promise<{ text: string }>;
 
   const ids = { farmA: "", farmB: "", fieldA1: "", fieldA2: "", fieldB1: "" };
 
+  // A1 harvested under closed order OS-A; A2 without order; B1 under active order OS-B; one supplier entry unlinked.
   before(() => {
     createFarm({ code: "100-951", name: "FAZENDA RELATORIO AURORA", fields: [{ code: "1", areaAlq: 2 }, { code: "2" }] });
     createFarm({ code: "100-952", name: "FAZENDA RELATORIO CEDRO", fields: [{ code: "1", areaAlq: 1 }] });
@@ -31,14 +39,26 @@ if (!testDatabaseUrl) {
     ids.fieldA2 = farmA.fields.find((field) => field.code === "2")!.id;
     ids.fieldB1 = farmB.fields[0]!.id;
 
+    const orderA = createOrder({ number: "OS-REL-A", frontNumbers: [41], farmId: ids.farmA, fieldIds: [ids.fieldA1], startDate: "2026-09-01" });
+    const orderB = createOrder({ number: "OS-REL-B", frontNumbers: [42], farmId: ids.farmB, fieldIds: [ids.fieldB1], startDate: "2026-09-01" });
+    assert.ok(orderA && orderB, "OS ficticias nao foram criadas");
+
     const batch = createImportBatch({ fileName: "relatorio-ficticio.csv", rowCount: 7, metadata: { sourceType: "CSV" } });
     assert.ok(batch, "lote ficticio nao foi criado");
-    const entry = (day: string, farmId: string | undefined, fieldId: string | undefined, netWeight: number, status: "OK" | "FIELD_NOT_RELEASED" | "FARM_NOT_FOUND" = "OK") => ({
+    const entry = (
+      day: string,
+      farmId: string | undefined,
+      fieldId: string | undefined,
+      orderId: string | undefined,
+      netWeight: number,
+      status: "OK" | "FIELD_NOT_RELEASED" | "FARM_NOT_FOUND" = "OK"
+    ) => ({
       batchId: batch.id,
       ticketNumber: `T-${day}-${netWeight}`,
       entryDate: new Date(`${day}T00:00:00.000Z`),
       farmId,
       fieldId,
+      orderId,
       farmCodeRaw: farmId ? undefined : "300-999",
       farmNameRaw: farmId ? undefined : "FORNECEDOR SEM CADASTRO",
       fieldCodeRaw: fieldId ? undefined : "9",
@@ -48,14 +68,15 @@ if (!testDatabaseUrl) {
     });
 
     createCaneEntries([
-      entry("2026-09-01", ids.farmA, ids.fieldA1, 31.5),
-      entry("2026-09-01", ids.farmA, ids.fieldA1, 30.25),
-      entry("2026-09-02", ids.farmA, ids.fieldA2, 28, "FIELD_NOT_RELEASED"),
-      entry("2026-09-02", ids.farmB, ids.fieldB1, 33.75),
-      entry("2026-09-03", ids.farmB, ids.fieldB1, 32),
-      entry("2026-09-05", ids.farmB, ids.fieldB1, 29.5),
-      entry("2026-09-03", undefined, undefined, 27, "FARM_NOT_FOUND")
+      entry("2026-09-01", ids.farmA, ids.fieldA1, orderA.id, 31.5),
+      entry("2026-09-02", ids.farmA, ids.fieldA1, orderA.id, 30.25),
+      entry("2026-09-02", ids.farmA, ids.fieldA2, undefined, 28, "FIELD_NOT_RELEASED"),
+      entry("2026-09-02", ids.farmB, ids.fieldB1, orderB.id, 33.75),
+      entry("2026-09-03", ids.farmB, ids.fieldB1, orderB.id, 32),
+      entry("2026-09-05", ids.farmB, ids.fieldB1, orderB.id, 29.5),
+      entry("2026-09-03", undefined, undefined, undefined, 27, "FARM_NOT_FOUND")
     ]);
+    assert.equal(closeOrder(orderA.id)?.status, "CLOSED");
   });
 
   after(async () => {
@@ -76,65 +97,68 @@ if (!testDatabaseUrl) {
     assert.ok(Math.abs(report.totals.totalNetWeight - 212) < 1e-9);
     assert.equal(report.totals.farmCount, 3);
     assert.equal(report.totals.divergentCount, 2);
-    assert.ok(report.farms.some((farm) => farm.farmName === "FORNECEDOR SEM CADASTRO"));
   });
 
-  test("farm, field and period filters narrow the same query", () => {
-    const farm = loadCaneReport({ type: "DETAILED", farmId: ids.farmB });
-    assert.equal(farm.totals.entryCount, 3);
-    assert.ok(Math.abs(farm.totals.totalNetWeight - 95.25) < 1e-9);
-    assert.equal(farm.filterLabels.farm, "100-952 - FAZENDA RELATORIO CEDRO");
+  test("only the field of the closed order has proven harvested area", () => {
+    const report = loadCaneReport({ type: "DETAILED" });
+    const byField = new Map(report.fields.map((field) => [`${field.farmName}/${field.fieldCode}`, field]));
+    const a1 = byField.get("FAZENDA RELATORIO AURORA/1")!;
 
-    const field = loadCaneReport({ type: "DETAILED", farmId: ids.farmA, fieldId: ids.fieldA1 });
-    assert.equal(field.totals.entryCount, 2);
-    assert.equal(field.fields.length, 1);
-    assert.ok(Math.abs(field.fields[0]!.areaHa! - 4.84) < 1e-9);
-    assert.ok(Math.abs(field.fields[0]!.tch! - 61.75 / 4.84) < 1e-9);
+    assert.equal(a1.evidence, "CLOSED_COMPLETE");
+    assert.equal(a1.evidenceLabel, "OS OS-REL-A encerrada");
+    assert.ok(Math.abs(a1.effectiveTch! - 61.75 / 4.84) < 1e-9);
+    assert.equal(byField.get("FAZENDA RELATORIO AURORA/2")!.evidence, "NO_AREA");
+    assert.equal(byField.get("FAZENDA RELATORIO CEDRO/1")!.evidence, "OPEN");
+    assert.equal(byField.get("FORNECEDOR SEM CADASTRO/9")!.evidence, "NO_AREA");
 
+    assert.ok(Math.abs(report.totals.registeredAreaHa - (4.84 + 2.42)) < 1e-9);
+    assert.ok(Math.abs(report.totals.provenAreaHa - 4.84) < 1e-9);
+    assert.ok(Math.abs(report.totals.effectiveTch! - 61.75 / 4.84) < 1e-9);
+    assert.equal(report.totals.provenFieldCount, 1);
+  });
+
+  test("a period that cuts the closed order leaves its TCH unproven", () => {
+    const clipped = loadCaneReport({ type: "DETAILED", farmId: ids.farmA, from: "2026-09-02", to: "2026-09-03" });
+    const a1 = clipped.fields.find((field) => field.fieldCode === "1")!;
+
+    assert.equal(a1.evidence, "CLOSED_CLIPPED");
+    assert.equal(a1.effectiveTch, null);
+    assert.equal(clipped.totals.effectiveTch, null);
+
+    const whole = loadCaneReport({ type: "DETAILED", fieldId: ids.fieldA1, farmId: ids.farmA, from: "2026-09-01", to: "2026-09-02" });
+    assert.equal(whole.fields[0]!.evidence, "CLOSED_COMPLETE");
+  });
+
+  test("an active order stays unproven even with every delivery inside the period", () => {
+    const report = loadCaneReport({ type: "DETAILED", farmId: ids.farmB, from: "2026-09-01", to: "2026-09-30" });
+
+    assert.equal(report.totals.entryCount, 3);
+    assert.equal(report.fields[0]!.evidence, "OPEN");
+    assert.equal(report.totals.effectiveTch, null);
+    assert.ok(Math.abs(report.totals.registeredAreaHa - 2.42) < 1e-9);
+  });
+
+  test("filters narrow the same query and match the harvest dashboard volumes", () => {
     const period = loadCaneReport({ type: "GENERAL", from: "2026-09-02", to: "2026-09-03" });
     assert.deepEqual(period.days.map((day) => day.date), ["2026-09-02", "2026-09-03"]);
-    assert.equal(period.totals.entryCount, 4);
+    assert.equal(period.totals.entryCount, 5);
+    assert.deepEqual(listCaneReportRows({ from: "2026-09-05", to: "2026-09-05" }).map((row) => [row.referenceDate, row.entryCount]), [["2026-09-05", 1]]);
 
-    const sameDay = listCaneReportRows({ from: "2026-09-05", to: "2026-09-05" });
-    assert.deepEqual(sameDay.map((row) => [row.referenceDate, row.entryCount]), [["2026-09-05", 1]]);
-  });
-
-  test("unfiltered report uses the harvest dashboard definitions", () => {
     const report = loadCaneReport({ type: "GENERAL" });
     const dashboard = getHarvestExecutiveDashboard({});
-    const round = (value: number | null) => (value === null ? null : Math.round(value * 1000) / 1000);
-
+    const round = (value: number) => Math.round(value * 1000) / 1000;
     assert.equal(report.totals.entryCount, dashboard.totals.entries);
-    assert.equal(report.totals.farmCount, dashboard.totals.farms);
     assert.equal(report.totals.fieldCount, dashboard.totals.fields);
     assert.equal(round(report.totals.totalNetWeight), dashboard.totals.totalNetWeight);
-    assert.equal(round(report.totals.areaHa), dashboard.totals.areaHa);
-    assert.equal(round(report.totals.tch), dashboard.totals.tch);
-    assert.equal(round(report.totals.areaCoveragePercentage), dashboard.totals.areaCoveragePercentage);
-  });
-
-  test("period TCH uses each field's full delivery span from the database", () => {
-    const partial = loadCaneReport({ type: "DETAILED", from: "2026-09-02", to: "2026-09-03" });
-    const fieldB1 = partial.fields.find((field) => field.farmName === "FAZENDA RELATORIO CEDRO")!;
-
-    assert.equal(fieldB1.harvestFirstDate, "2026-09-02");
-    assert.equal(fieldB1.harvestLastDate, "2026-09-05");
-    assert.equal(fieldB1.tchUnavailableReason, "PARTIAL_PERIOD");
-    assert.equal(fieldB1.tch, null);
-    assert.ok(Math.abs(fieldB1.totalNetWeight - 65.75) < 1e-9);
-    assert.equal(partial.totals.tch, null);
-    assert.equal(partial.totals.areaHa, null);
-
-    const complete = loadCaneReport({ type: "DETAILED", farmId: ids.farmB, from: "2026-09-01", to: "2026-09-05" });
-    assert.equal(complete.fields[0]!.tchUnavailableReason, null);
-    assert.ok(Math.abs(complete.totals.tch! - 95.25 / 2.42) < 1e-9);
+    // Same registered area as the dashboard; the dashboard TCH divides all cane by it, the report does not.
+    assert.equal(round(report.totals.registeredAreaHa), dashboard.totals.areaHa);
   });
 
   test("a period without deliveries returns an empty report", () => {
     const report = loadCaneReport({ type: "GENERAL", farmId: ids.farmA, from: "2026-10-01", to: "2026-10-31" });
 
     assert.equal(report.isEmpty, true);
-    assert.equal(report.totals.tch, null);
+    assert.equal(report.totals.effectiveTch, null);
     assert.deepEqual(report.farms, []);
   });
 
@@ -144,12 +168,11 @@ if (!testDatabaseUrl) {
   });
 
   test("PDF printed from the stored data shows the preview totals", async () => {
-    const preview = loadCaneReport({ type: "DETAILED", farmId: ids.farmA });
     const printed = { ...loadCaneReport({ type: "DETAILED", farmId: ids.farmA }), generatedAt: "2026-10-18T12:00:00.000Z" };
-    const { text } = await pdfParse(await renderCaneReportPdf(printed));
+    const { text } = extractPdfText(await renderCaneReportPdf(printed));
 
-    assert.equal(formatTons(preview.totals.totalNetWeight), "89,750");
+    assert.equal(formatTons(printed.totals.totalNetWeight), "89,750");
     assert.ok(text.includes("89,750"));
-    assert.match(text, /FAZENDA RELATORIO AURORA/);
+    assert.match(text, /OS OS-REL-A encerrada/);
   });
 }
