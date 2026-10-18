@@ -139,6 +139,11 @@ def ensure_cluster(settings: dict):
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
+def npm_install_args(npm_cli) -> list:
+    # The runtime environment sets NODE_ENV=production, which makes npm omit the build tools (TypeScript, Vite).
+    return [npm_cli, "ci", "--ignore-scripts", "--include=dev"]
+
+
 def setup(skip_install=False):
     STATE.mkdir(exist_ok=True)
     for folder in ["temp", "logs", "uploads", "analysis-files", "backups", "colaboradores"]:
@@ -165,7 +170,7 @@ def setup(skip_install=False):
         run([python_exe(), "-m", "pip", "install", "-r", "requirements-demo.txt"])
         npm = Path(shutil.which("npm.cmd" if os.name == "nt" else "npm") or "npm")
         npm_cli = npm.parent / "node_modules" / "npm" / "bin" / "npm-cli.js"
-        run([settings["node"], npm_cli, "ci", "--ignore-scripts"], cwd=ROOT / "balanca-audit", env=environment(settings))
+        run([settings["node"], *npm_install_args(npm_cli)], cwd=ROOT / "balanca-audit", env=environment(settings))
         run([settings["node"], npm_cli, "run", "build"], cwd=ROOT / "balanca-audit", env=environment(settings))
     ensure_cluster(settings)
     # Bootstrap is executed inside the isolated virtual environment, not a global Python.

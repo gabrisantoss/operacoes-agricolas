@@ -29,6 +29,11 @@ def main():
                                     cwd=ROOT / folder, env=env)
             if result.returncode:
                 failures.append(f"{module}/{pattern}")
+    print("\n=== Python: controlador da demonstracao ===", flush=True)
+    result = subprocess.run([str(demo.python_exe()), "-m", "unittest", "discover", "-s", "tests", "-v"],
+                            cwd=ROOT, env={**demo.environment(settings), "OA_DEMO_NODE": settings["node"]})
+    if result.returncode:
+        failures.append("controlador")
     api = ROOT / "balanca-audit/apps/api"
     env = demo.environment(settings)
     env["NODE_ENV"] = "test"
