@@ -28,7 +28,8 @@ export function renderCaneReportPdf(report: CaneReport): Promise<Buffer> {
     layout: "landscape",
     margin,
     bufferPages: true,
-    info: { Title: report.title, Author: systemIdentity.currentName }
+    // Creation date comes from the report, so the same report always renders the same bytes.
+    info: { Title: report.title, Author: systemIdentity.currentName, CreationDate: new Date(report.generatedAt) }
   });
   const chunks: Buffer[] = [];
   const done = new Promise<Buffer>((resolve, reject) => {
@@ -39,6 +40,8 @@ export function renderCaneReportPdf(report: CaneReport): Promise<Buffer> {
 
   drawHeader(doc, report);
   drawTotals(doc, report);
+  // Every following page repeats which report and filters it belongs to.
+  doc.on("pageAdded", () => drawContinuationHeader(doc, report));
 
   if (report.isEmpty) {
     doc.moveDown(1);
@@ -64,6 +67,11 @@ export function formatDecimal(value: number | null | undefined, digits = 2) {
   return new Intl.NumberFormat("pt-BR", { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value);
 }
 
+// Area and TCH that cannot be determined are shown as N/D, never as zero.
+export function formatIndicator(value: number | null | undefined, digits = 2) {
+  return value === null || value === undefined || !Number.isFinite(value) ? "N/D" : formatDecimal(value, digits);
+}
+
 export function formatInteger(value: number) {
   return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 }).format(value);
 }
@@ -82,6 +90,13 @@ function drawHeader(doc: PDFKit.PDFDocument, report: CaneReport) {
   doc.y = 84;
 }
 
+function drawContinuationHeader(doc: PDFKit.PDFDocument, report: CaneReport) {
+  const text = `${report.title} (continuação)   ·   Fazenda: ${report.filterLabels.farm}   ·   Talhão: ${report.filterLabels.field}   ·   Período: ${report.filterLabels.period}`;
+  doc.font("Helvetica").fontSize(7.5).fillColor(colors.muted)
+    .text(fitPdfSingleLine(doc, text, doc.page.width - margin * 2), margin, 18, { lineBreak: false });
+  doc.y = margin + 6;
+}
+
 function drawTotals(doc: PDFKit.PDFDocument, report: CaneReport) {
   const { totals } = report;
   const cards: Array<[string, string]> = [
@@ -90,8 +105,8 @@ function drawTotals(doc: PDFKit.PDFDocument, report: CaneReport) {
     ["Média por carga (t)", formatTons(totals.averageNetWeightPerEntry)],
     ["Fazendas / talhões", `${formatInteger(totals.farmCount)} / ${formatInteger(totals.fieldCount)}`],
     ["Dias com entrega", formatInteger(totals.deliveryDays)],
-    ["Área colhida (ha)", formatDecimal(totals.areaHa)],
-    ["TCH (t/ha)", formatDecimal(totals.tch)],
+    ["Área colhida (ha)", formatIndicator(totals.areaHa || null)],
+    ["TCH (t/ha)", formatIndicator(totals.tch)],
     ["Cargas divergentes", formatInteger(totals.divergentCount)]
   ];
   const gap = 6;
@@ -106,14 +121,12 @@ function drawTotals(doc: PDFKit.PDFDocument, report: CaneReport) {
   });
 
   doc.y = y + 48;
-  const period = totals.firstDate ? `${formatReportDate(totals.firstDate)} a ${formatReportDate(totals.lastDate)}` : "-";
-  const coverage = totals.fieldCount > 0
-    ? `TCH = cana entregue ÷ área dos talhões com área cadastrada; ${formatDecimal(totals.areaCoveragePercentage, 1)}% da cana vem de talhões com área (${formatInteger(totals.fieldsWithoutArea)} talhão(ões) sem área).`
-    : "";
-  doc.font("Helvetica").fontSize(7.5).fillColor(colors.muted)
-    .text(`Entregas registradas: ${period}. Data de referência: data da entrada (sem data, início do período do lote). ${coverage}`,
-      margin, doc.y, { width: doc.page.width - margin * 2 });
-  doc.moveDown(0.8);
+  doc.font("Helvetica").fontSize(7.5).fillColor(colors.muted);
+  for (const note of report.notes) {
+    doc.text(note, margin, doc.y, { width: doc.page.width - margin * 2 });
+    doc.moveDown(0.2);
+  }
+  doc.moveDown(0.6);
 }
 
 function drawGeneral(doc: PDFKit.PDFDocument, report: CaneReport) {
@@ -140,11 +153,11 @@ function drawDetailed(doc: PDFKit.PDFDocument, report: CaneReport) {
   const columns: Column<CaneReportFieldRow>[] = [
     { label: "Talhão", width: 60, value: (row) => row.fieldCode },
     { label: "Nome", width: 110, value: (row) => row.fieldName ?? "-" },
-    { label: "Área (ha)", width: 62, align: "right", value: (row) => formatDecimal(row.areaHa) },
+    { label: "Área cad. (ha)", width: 62, align: "right", value: (row) => formatIndicator(row.areaHa) },
     { label: "Cargas", width: 52, align: "right", value: (row) => formatInteger(row.entryCount) },
     { label: "Cana (t)", width: 84, align: "right", value: (row) => formatTons(row.totalNetWeight) },
     { label: "Média/carga (t)", width: 76, align: "right", value: (row) => formatTons(row.averageNetWeightPerEntry) },
-    { label: "TCH (t/ha)", width: 62, align: "right", value: (row) => formatDecimal(row.tch) },
+    { label: "TCH (t/ha)", width: 62, align: "right", value: (row) => formatIndicator(row.tch) },
     { label: "Dias", width: 40, align: "right", value: (row) => (row.key === "subtotal" ? "-" : formatInteger(row.deliveryDays)) },
     { label: "Primeira", width: 64, value: (row) => formatReportDate(row.firstDate) },
     { label: "Última", width: 64, value: (row) => formatReportDate(row.lastDate) },
@@ -161,20 +174,29 @@ function drawDetailed(doc: PDFKit.PDFDocument, report: CaneReport) {
       farmName: farm.farmName,
       fieldCode: "Subtotal",
       fieldName: `${formatInteger(farm.fieldCount)} talhão(ões)`,
-      areaHa: farm.areaHa || null,
+      // Registered area of the farm's fields, matching the column above; harvested area is in the summary.
+      areaHa: registeredArea(fields),
       entryCount: farm.entryCount,
       divergentCount: farm.divergentCount,
       totalNetWeight: farm.totalNetWeight,
       averageNetWeightPerEntry: farm.entryCount > 0 ? farm.totalNetWeight / farm.entryCount : null,
       tch: farm.tch,
+      tchUnavailableReason: null,
       deliveryDays: 0,
       firstDate: farm.firstDate,
-      lastDate: farm.lastDate
+      lastDate: farm.lastDate,
+      harvestFirstDate: null,
+      harvestLastDate: null
     });
   }
 
   sectionTitle(doc, "Resumo por fazenda");
   drawTable<CaneReportFarmRow>(doc, farmColumns(), report.farms, farmTotalRow(report));
+}
+
+export function registeredArea(fields: Array<{ areaHa: number | null }>) {
+  const known = fields.filter((field) => field.areaHa !== null);
+  return known.length > 0 ? known.reduce((total, field) => total + field.areaHa!, 0) : null;
 }
 
 function farmColumns(): Column<CaneReportFarmRow>[] {
@@ -185,8 +207,8 @@ function farmColumns(): Column<CaneReportFarmRow>[] {
     { label: "Cargas", width: 56, align: "right", value: (row) => formatInteger(row.entryCount) },
     { label: "Cana (t)", width: 90, align: "right", value: (row) => formatTons(row.totalNetWeight) },
     { label: "% do total", width: 60, align: "right", value: (row) => formatDecimal(row.shareOfTotal, 1) },
-    { label: "Área (ha)", width: 66, align: "right", value: (row) => formatDecimal(row.areaHa || null) },
-    { label: "TCH (t/ha)", width: 62, align: "right", value: (row) => formatDecimal(row.tch) },
+    { label: "Área colh. (ha)", width: 66, align: "right", value: (row) => formatIndicator(row.areaHa || null) },
+    { label: "TCH (t/ha)", width: 62, align: "right", value: (row) => formatIndicator(row.tch) },
     { label: "Divergentes", width: 66, align: "right", value: (row) => formatInteger(row.divergentCount) },
     { label: "Período", width: 114, value: (row) => `${formatReportDate(row.firstDate)} a ${formatReportDate(row.lastDate)}` }
   ];
@@ -204,6 +226,7 @@ function farmTotalRow(report: CaneReport): CaneReportFarmRow {
     shareOfTotal: report.totals.totalNetWeight > 0 ? 100 : 0,
     areaHa: report.totals.areaHa,
     tch: report.totals.tch,
+    partialPeriodFieldCount: report.totals.partialPeriodFieldCount,
     firstDate: report.totals.firstDate,
     lastDate: report.totals.lastDate
   };
@@ -230,7 +253,6 @@ function drawTable<T>(
   for (const row of rows) {
     if (doc.y + rowHeight > doc.page.height - margin - 14) {
       doc.addPage();
-      doc.y = margin;
       header();
     }
     drawRow(doc, cellValues(columns, row, firstCell), columns, null, false);
@@ -272,7 +294,6 @@ function drawRow<T>(doc: PDFKit.PDFDocument, values: string[], columns: Column<T
 function ensureSpace(doc: PDFKit.PDFDocument, height: number) {
   if (doc.y + height > doc.page.height - margin - 14) {
     doc.addPage();
-    doc.y = margin;
   }
 }
 

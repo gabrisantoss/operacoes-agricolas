@@ -32,6 +32,24 @@ O workflow do GitHub verifica arquivos versionados, sintaxe Python, compilação
 - Atualização dos contadores de CNH após o carregamento dos dados.
 - Testes de segurança dos utilitários de restauração e proteção do histórico de notas.
 
+## Central de relatórios e painel Safra
+
+A prévia e o PDF da central são gerados a partir do mesmo objeto calculado. Em relação ao painel Safra, as definições são compatíveis:
+
+- **Cana entregue** é a soma do peso líquido das entradas; **cargas** é o número de entradas.
+- Fazenda e talhão usam as mesmas regras de identidade do painel: cadastro, código bruto e nome.
+- **TCH** é a cana entregue dividida pela área cadastrada dos talhões que têm área em hectares e em alqueires. A cobertura de área é informada. Talhões sem área entram na cana, mas não na área, como no painel.
+- Sem filtros, um teste automatizado confirma que os totais da central e do painel são iguais: cargas, cana, área, TCH e cobertura.
+
+Diferenças legítimas:
+
+| Aspecto | Painel Safra | Central de relatórios |
+| --- | --- | --- |
+| Período | Safra (ano) ou período do lote do PDF, por sobreposição | Data de referência da entrada (sem data, início do período do lote) |
+| Filtro de fazenda | Fazenda gravada na entrada | Também a fazenda do talhão vinculado |
+| TCH em período parcial | Calculado com a área total dos talhões | **N/D** quando um talhão tem entregas fora do período: a área colhida dentro dele não pode ser determinada pelos dados. Cana e cargas continuam válidas, assim como o TCH dos talhões com toda a colheita registrada no período |
+| Arredondamento | Três casas no servidor | Valor completo, formatado com três casas para tonelada e duas para área e TCH |
+
 ## Limites
 
 Não foram validados: instaladores desktop, execução gráfica Electron, carga concorrente elevada, implantação pública, integrações externas, scanners físicos ou OCR configurado. A revisão visual cobre as telas capturadas; não equivale a validar todas as combinações de formulários e relatórios. Alertas de depreciação de bibliotecas Python permanecem como oportunidade de manutenção.

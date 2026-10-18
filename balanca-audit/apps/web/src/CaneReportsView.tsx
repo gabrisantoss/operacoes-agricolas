@@ -21,6 +21,7 @@ type CaneReport = {
   title: string;
   filterLabels: { farm: string; field: string; period: string };
   isEmpty: boolean;
+  notes: string[];
   totals: {
     farmCount: number;
     fieldCount: number;
@@ -32,10 +33,11 @@ type CaneReport = {
     deliveryDays: number;
     firstDate: string | null;
     lastDate: string | null;
-    areaHa: number;
+    areaHa: number | null;
     tch: number | null;
     areaCoveragePercentage: number;
     fieldsWithoutArea: number;
+    partialPeriodFieldCount: number;
   };
   farms: Array<{
     key: string;
@@ -46,7 +48,7 @@ type CaneReport = {
     divergentCount: number;
     totalNetWeight: number;
     shareOfTotal: number;
-    areaHa: number;
+    areaHa: number | null;
     tch: number | null;
     firstDate: string | null;
     lastDate: string | null;
@@ -238,15 +240,15 @@ export function CaneReportsView({ token, setMessage }: { token: string; setMessa
                 <ReportMetric label="Média por carga (t)" value={formatTons(report.totals.averageNetWeightPerEntry)} />
                 <ReportMetric label="Fazendas / talhões" value={`${report.totals.farmCount} / ${report.totals.fieldCount}`} />
                 <ReportMetric label="Dias com entrega" value={formatInteger(report.totals.deliveryDays)} />
-                <ReportMetric label="Área colhida (ha)" value={formatDecimal(report.totals.areaHa)} />
-                <ReportMetric label="TCH (t/ha)" value={formatDecimal(report.totals.tch)} />
+                <ReportMetric label="Área colhida (ha)" value={formatIndicator(report.totals.areaHa || null)} />
+                <ReportMetric label="TCH (t/ha)" value={formatIndicator(report.totals.tch)} />
                 <ReportMetric label="Cargas divergentes" value={formatInteger(report.totals.divergentCount)} />
               </section>
-              <p className="muted">
-                Entregas de {formatDate(report.totals.firstDate)} a {formatDate(report.totals.lastDate)}. TCH = cana entregue ÷ área dos
-                talhões com área cadastrada; {formatDecimal(report.totals.areaCoveragePercentage, 1)}% da cana vem de talhões com área
-                ({report.totals.fieldsWithoutArea} talhão(ões) sem área).
-              </p>
+              {report.notes.map((note) => (
+                <p className="muted" key={note}>
+                  {note}
+                </p>
+              ))}
 
               {report.type === "DETAILED" ? <DetailedTables report={report} /> : <GeneralTables report={report} />}
             </>
@@ -313,7 +315,7 @@ function DetailedTables({ report }: { report: CaneReport }) {
                 <tr>
                   <th>Talhão</th>
                   <th>Nome</th>
-                  <th>Área (ha)</th>
+                  <th>Área cad. (ha)</th>
                   <th>Cargas</th>
                   <th>Cana (t)</th>
                   <th>Média/carga (t)</th>
@@ -331,11 +333,11 @@ function DetailedTables({ report }: { report: CaneReport }) {
                     <tr key={field.key}>
                       <td>{field.fieldCode}</td>
                       <td>{field.fieldName ?? "-"}</td>
-                      <td>{formatDecimal(field.areaHa)}</td>
+                      <td>{formatIndicator(field.areaHa)}</td>
                       <td>{formatInteger(field.entryCount)}</td>
                       <td>{formatTons(field.totalNetWeight)}</td>
                       <td>{formatTons(field.averageNetWeightPerEntry)}</td>
-                      <td>{formatDecimal(field.tch)}</td>
+                      <td>{formatIndicator(field.tch)}</td>
                       <td>{formatInteger(field.deliveryDays)}</td>
                       <td>{formatDate(field.firstDate)}</td>
                       <td>{formatDate(field.lastDate)}</td>
@@ -345,11 +347,11 @@ function DetailedTables({ report }: { report: CaneReport }) {
                 <tr className="totalRow">
                   <td>Subtotal</td>
                   <td>{farm.fieldCount} talhão(ões)</td>
-                  <td>{formatDecimal(farm.areaHa || null)}</td>
+                  <td>{formatIndicator(registeredArea(report.fields.filter((field) => field.farmKey === farm.key)))}</td>
                   <td>{formatInteger(farm.entryCount)}</td>
                   <td>{formatTons(farm.totalNetWeight)}</td>
                   <td>{formatTons(farm.entryCount > 0 ? farm.totalNetWeight / farm.entryCount : null)}</td>
-                  <td>{formatDecimal(farm.tch)}</td>
+                  <td>{formatIndicator(farm.tch)}</td>
                   <td>-</td>
                   <td>{formatDate(farm.firstDate)}</td>
                   <td>{formatDate(farm.lastDate)}</td>
@@ -378,7 +380,7 @@ function FarmTable({ report }: { report: CaneReport }) {
             <th>Cargas</th>
             <th>Cana (t)</th>
             <th>% do total</th>
-            <th>Área (ha)</th>
+            <th>Área colh. (ha)</th>
             <th>TCH (t/ha)</th>
             <th>Divergentes</th>
             <th>Período</th>
@@ -393,8 +395,8 @@ function FarmTable({ report }: { report: CaneReport }) {
               <td>{formatInteger(farm.entryCount)}</td>
               <td>{formatTons(farm.totalNetWeight)}</td>
               <td>{formatDecimal(farm.shareOfTotal, 1)}</td>
-              <td>{formatDecimal(farm.areaHa || null)}</td>
-              <td>{formatDecimal(farm.tch)}</td>
+              <td>{formatIndicator(farm.areaHa || null)}</td>
+              <td>{formatIndicator(farm.tch)}</td>
               <td>{formatInteger(farm.divergentCount)}</td>
               <td>
                 {formatDate(farm.firstDate)} a {formatDate(farm.lastDate)}
@@ -408,8 +410,8 @@ function FarmTable({ report }: { report: CaneReport }) {
             <td>{formatInteger(report.totals.entryCount)}</td>
             <td>{formatTons(report.totals.totalNetWeight)}</td>
             <td>{formatDecimal(report.totals.totalNetWeight > 0 ? 100 : 0, 1)}</td>
-            <td>{formatDecimal(report.totals.areaHa || null)}</td>
-            <td>{formatDecimal(report.totals.tch)}</td>
+            <td>{formatIndicator(report.totals.areaHa || null)}</td>
+            <td>{formatIndicator(report.totals.tch)}</td>
             <td>{formatInteger(report.totals.divergentCount)}</td>
             <td>
               {formatDate(report.totals.firstDate)} a {formatDate(report.totals.lastDate)}
@@ -447,6 +449,15 @@ function formatTons(value: number | null | undefined) {
 function formatDecimal(value: number | null | undefined, digits = 2) {
   if (value === null || value === undefined || !Number.isFinite(value)) return "-";
   return new Intl.NumberFormat("pt-BR", { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value);
+}
+
+function registeredArea(fields: Array<{ areaHa: number | null }>) {
+  const known = fields.filter((field) => field.areaHa !== null);
+  return known.length > 0 ? known.reduce((total, field) => total + field.areaHa!, 0) : null;
+}
+
+function formatIndicator(value: number | null | undefined) {
+  return value === null || value === undefined || !Number.isFinite(value) ? "N/D" : formatDecimal(value);
 }
 
 function formatInteger(value: number) {

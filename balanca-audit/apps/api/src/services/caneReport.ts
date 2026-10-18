@@ -20,10 +20,12 @@ export type CaneReportTotals = {
   deliveryDays: number;
   firstDate: string | null;
   lastDate: string | null;
-  areaHa: number;
+  // Null when the area harvested inside the period cannot be determined (see partialPeriodFieldCount).
+  areaHa: number | null;
   tch: number | null;
   areaCoveragePercentage: number;
   fieldsWithoutArea: number;
+  partialPeriodFieldCount: number;
 };
 
 export type CaneReportFarmRow = {
@@ -35,8 +37,9 @@ export type CaneReportFarmRow = {
   divergentCount: number;
   totalNetWeight: number;
   shareOfTotal: number;
-  areaHa: number;
+  areaHa: number | null;
   tch: number | null;
+  partialPeriodFieldCount: number;
   firstDate: string | null;
   lastDate: string | null;
 };
@@ -54,9 +57,12 @@ export type CaneReportFieldRow = {
   totalNetWeight: number;
   averageNetWeightPerEntry: number | null;
   tch: number | null;
+  tchUnavailableReason: TchUnavailableReason | null;
   deliveryDays: number;
   firstDate: string | null;
   lastDate: string | null;
+  harvestFirstDate: string | null;
+  harvestLastDate: string | null;
 };
 
 export type CaneReportDayRow = {
@@ -74,6 +80,8 @@ export type CaneReport = {
   filterLabels: { farm: string; field: string; period: string };
   generatedAt: string;
   isEmpty: boolean;
+  // Explanations printed identically by the preview and the PDF.
+  notes: string[];
   totals: CaneReportTotals;
   farms: CaneReportFarmRow[];
   fields: CaneReportFieldRow[];
@@ -91,7 +99,14 @@ export const caneReportTitles: Record<CaneReportType, string> = {
   DETAILED: "Relatório detalhado de safra por talhão"
 };
 
-type FieldAccumulator = Omit<CaneReportFieldRow, "averageNetWeightPerEntry" | "tch" | "deliveryDays"> & {
+// NO_AREA: field without registered area. PARTIAL_PERIOD: the field also has deliveries outside the selected
+// period, so the area harvested inside it cannot be determined from the stored data.
+export type TchUnavailableReason = "NO_AREA" | "PARTIAL_PERIOD";
+
+type FieldAccumulator = Omit<
+  CaneReportFieldRow,
+  "averageNetWeightPerEntry" | "tch" | "tchUnavailableReason" | "deliveryDays"
+> & {
   areaAlq: number | null;
   okCount: number;
   divergentNetWeight: number;
@@ -124,9 +139,13 @@ export function buildCaneReport(
       divergentNetWeight: 0,
       firstDate: null,
       lastDate: null,
+      harvestFirstDate: row.fieldHarvestFirstDate,
+      harvestLastDate: row.fieldHarvestLastDate,
       dates: new Set<string>()
     };
 
+    field.harvestFirstDate = earliest(field.harvestFirstDate, row.fieldHarvestFirstDate);
+    field.harvestLastDate = latest(field.harvestLastDate, row.fieldHarvestLastDate);
     field.entryCount += row.entryCount;
     field.okCount += row.okCount;
     field.divergentCount += row.divergentCount;
@@ -164,7 +183,7 @@ export function buildCaneReport(
       left.fieldCode.localeCompare(right.fieldCode, "pt-BR", { numeric: true })
   );
   const totalNetWeight = sum(fieldRows, (field) => field.totalNetWeight);
-  const farms = new Map<string, CaneReportFarmRow>();
+  const farms = new Map<string, CaneReportFarmRow & { knownAreaHa: number }>();
 
   for (const field of fieldRows) {
     const farm = farms.get(field.farmKey) ?? {
@@ -176,34 +195,52 @@ export function buildCaneReport(
       divergentCount: 0,
       totalNetWeight: 0,
       shareOfTotal: 0,
-      areaHa: 0,
+      areaHa: null,
+      knownAreaHa: 0,
       tch: null,
+      partialPeriodFieldCount: 0,
       firstDate: null,
       lastDate: null
     };
+    const areaStatus = fieldAreaStatus(field, filters);
 
     farm.fieldCount += 1;
     farm.entryCount += field.entryCount;
     farm.divergentCount += field.divergentCount;
     farm.totalNetWeight += field.totalNetWeight;
-    farm.areaHa += hasCompleteHarvestArea(field) ? field.areaHa! : 0;
+    farm.knownAreaHa += areaStatus === null ? field.areaHa! : 0;
+    farm.partialPeriodFieldCount += areaStatus === "PARTIAL_PERIOD" ? 1 : 0;
     farm.firstDate = earliest(farm.firstDate, field.firstDate);
     farm.lastDate = latest(farm.lastDate, field.lastDate);
     farms.set(field.farmKey, farm);
   }
 
-  const farmRows = [...farms.values()].map((farm) => ({
-    ...farm,
-    shareOfTotal: totalNetWeight > 0 ? (farm.totalNetWeight / totalNetWeight) * 100 : 0,
-    tch: tonsPerHectare(farm.totalNetWeight, farm.areaHa)
-  }));
+  // Same TCH as the harvest dashboard (cane ÷ registered area of fields with area), unless part of the
+  // aggregate was harvested outside the period: then neither the area nor the TCH can be determined.
+  const farmRows: CaneReportFarmRow[] = [...farms.values()].map(({ knownAreaHa, ...farm }) => {
+    const areaHa = farm.partialPeriodFieldCount > 0 ? null : knownAreaHa;
+    return {
+      ...farm,
+      shareOfTotal: totalNetWeight > 0 ? (farm.totalNetWeight / totalNetWeight) * 100 : 0,
+      areaHa,
+      tch: areaHa === null ? null : tonsPerHectare(farm.totalNetWeight, areaHa)
+    };
+  });
   const coverage = calculateHarvestAreaCoverage(fieldRows.map(toProductionRow));
   const entryCount = sum(fieldRows, (field) => field.entryCount);
-  const areaHa = sum(farmRows, (farm) => farm.areaHa);
+  const partialPeriodFieldCount = sum(farmRows, (farm) => farm.partialPeriodFieldCount);
+  const areaHa = partialPeriodFieldCount > 0 ? null : sum(farmRows, (farm) => farm.areaHa ?? 0);
   const dayRows = [...days.values()]
     .sort((left, right) => left.date.localeCompare(right.date))
     .map(({ fieldKeys, ...day }) => ({ ...day, fieldCount: fieldKeys.size }));
   const type = filters.type ?? "GENERAL";
+  const notes = entryCount === 0 ? [] : reportNotes({
+    firstDate: dayRows[0]?.date ?? null,
+    lastDate: dayRows.at(-1)?.date ?? null,
+    partialPeriodFieldCount,
+    fieldsWithoutArea: coverage.fieldsWithoutArea,
+    areaCoveragePercentage: coverage.areaCoveragePercentage
+  });
 
   return {
     type,
@@ -216,6 +253,7 @@ export function buildCaneReport(
     },
     generatedAt: (context.generatedAt ?? new Date()).toISOString(),
     isEmpty: entryCount === 0,
+    notes,
     totals: {
       farmCount: farmRows.length,
       fieldCount: fieldRows.length,
@@ -229,14 +267,50 @@ export function buildCaneReport(
       firstDate: dayRows[0]?.date ?? null,
       lastDate: dayRows.at(-1)?.date ?? null,
       areaHa,
-      tch: tonsPerHectare(totalNetWeight, areaHa),
+      tch: areaHa === null ? null : tonsPerHectare(totalNetWeight, areaHa),
       areaCoveragePercentage: coverage.areaCoveragePercentage,
-      fieldsWithoutArea: coverage.fieldsWithoutArea
+      fieldsWithoutArea: coverage.fieldsWithoutArea,
+      partialPeriodFieldCount
     },
     farms: farmRows,
-    fields: type === "DETAILED" ? fieldRows.map(toFieldRow) : [],
+    fields: type === "DETAILED" ? fieldRows.map((field) => toFieldRow(field, filters)) : [],
     days: type === "GENERAL" ? dayRows : []
   };
+}
+
+function reportNotes(input: {
+  firstDate: string | null;
+  lastDate: string | null;
+  partialPeriodFieldCount: number;
+  fieldsWithoutArea: number;
+  areaCoveragePercentage: number;
+}) {
+  const notes = [
+    `Entregas registradas de ${formatReportDate(input.firstDate)} a ${formatReportDate(input.lastDate)}. ` +
+      "Data de referência: data da entrada (sem data, início do período do lote). " +
+      "TCH = cana entregue ÷ área cadastrada dos talhões com área, como no painel Safra."
+  ];
+
+  if (input.partialPeriodFieldCount > 0) {
+    notes.push(
+      `N/D: ${input.partialPeriodFieldCount} talhão(ões) também têm entregas fora do período selecionado. ` +
+        "A área colhida dentro do período não pode ser determinada, por isso a área colhida e o TCH desses talhões " +
+        "e dos totais que os incluem não são apresentados. Cana entregue e cargas continuam válidas."
+    );
+  }
+
+  if (input.fieldsWithoutArea > 0) {
+    notes.push(
+      `${input.fieldsWithoutArea} talhão(ões) sem área cadastrada: TCH N/D no talhão. ` +
+        `${formatPercent(input.areaCoveragePercentage)}% da cana vem de talhões com área.`
+    );
+  }
+
+  return notes;
+}
+
+function formatPercent(value: number) {
+  return new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value);
 }
 
 export function describePeriod(from: string | undefined, to: string | undefined) {
@@ -251,8 +325,24 @@ export function formatReportDate(value: string | null | undefined) {
   return match ? `${match[3]}/${match[2]}/${match[1]}` : "-";
 }
 
-function toFieldRow(field: FieldAccumulator): CaneReportFieldRow {
+export function fieldAreaStatus(
+  field: Pick<FieldAccumulator, "areaHa" | "areaAlq" | "firstDate" | "lastDate" | "harvestFirstDate" | "harvestLastDate">,
+  filters: Pick<CaneReportFilterInput, "from" | "to">
+): TchUnavailableReason | null {
+  if (!hasCompleteHarvestArea(field)) return "NO_AREA";
+
+  const harvestFirst = field.harvestFirstDate ?? field.firstDate;
+  const harvestLast = field.harvestLastDate ?? field.lastDate;
+  if ((filters.from && (!harvestFirst || harvestFirst < filters.from)) || (filters.to && (!harvestLast || harvestLast > filters.to))) {
+    return "PARTIAL_PERIOD";
+  }
+
+  return null;
+}
+
+function toFieldRow(field: FieldAccumulator, filters: CaneReportFilterInput): CaneReportFieldRow {
   const hasArea = hasCompleteHarvestArea(field);
+  const tchUnavailableReason = fieldAreaStatus(field, filters);
 
   return {
     key: field.key,
@@ -266,10 +356,13 @@ function toFieldRow(field: FieldAccumulator): CaneReportFieldRow {
     divergentCount: field.divergentCount,
     totalNetWeight: field.totalNetWeight,
     averageNetWeightPerEntry: field.entryCount > 0 ? field.totalNetWeight / field.entryCount : null,
-    tch: hasArea ? tonsPerHectare(field.totalNetWeight, field.areaHa!) : null,
+    tch: tchUnavailableReason === null ? tonsPerHectare(field.totalNetWeight, field.areaHa!) : null,
+    tchUnavailableReason,
     deliveryDays: field.dates.size,
     firstDate: field.firstDate,
-    lastDate: field.lastDate
+    lastDate: field.lastDate,
+    harvestFirstDate: field.harvestFirstDate,
+    harvestLastDate: field.harvestLastDate
   };
 }
 

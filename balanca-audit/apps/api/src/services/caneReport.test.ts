@@ -16,6 +16,8 @@ function row(partial: Partial<CaneReportSourceRow> & Pick<CaneReportSourceRow, "
     areaHa: null,
     areaAlq: null,
     referenceDate: "2026-09-01",
+    fieldHarvestFirstDate: null,
+    fieldHarvestLastDate: null,
     entryCount: 0,
     okCount: 0,
     divergentCount: 0,
@@ -138,6 +140,57 @@ test("filter labels describe empty filters and the selected farm and field", () 
   );
   assert.equal(describePeriod("2026-09-01", undefined), "A partir de 01/09/2026");
   assert.equal(describePeriod(undefined, "2026-09-30"), "Até 30/09/2026");
+});
+
+// Same rows as the fixture, but carrying each field's full harvest span as returned by the query.
+const withSpans = fixture.map((item) => ({
+  ...item,
+  fieldHarvestFirstDate: item.fieldId === "a1" ? "2026-09-01" : item.referenceDate,
+  fieldHarvestLastDate: item.fieldId === "a1" ? "2026-09-02" : item.referenceDate
+}));
+
+test("a partial period shows N/D for area and TCH it cannot determine and keeps valid indicators", () => {
+  const rowsInPeriod = withSpans.filter((item) => item.referenceDate! >= "2026-09-02");
+  const report = buildCaneReport(rowsInPeriod, { type: "DETAILED", from: "2026-09-02" });
+  const [a1, b1] = report.fields;
+
+  assert.equal(a1!.tch, null);
+  assert.equal(a1!.tchUnavailableReason, "PARTIAL_PERIOD");
+  close(a1!.areaHa, 10);
+  close(a1!.totalNetWeight, 60);
+  assert.equal(b1!.tchUnavailableReason, null);
+  close(b1!.tch, 24);
+
+  assert.equal(report.farms[0]!.areaHa, null);
+  assert.equal(report.farms[0]!.tch, null);
+  assert.equal(report.farms[0]!.partialPeriodFieldCount, 1);
+  close(report.farms[1]!.tch, 24);
+
+  assert.equal(report.totals.areaHa, null);
+  assert.equal(report.totals.tch, null);
+  assert.equal(report.totals.partialPeriodFieldCount, 1);
+  close(report.totals.totalNetWeight, 180);
+  assert.equal(report.totals.entryCount, 6);
+  assert.ok(report.notes.some((note) => note.startsWith("N/D: 1 talhão(ões) também têm entregas fora do período selecionado.")));
+});
+
+test("TCH stays available when every delivery of the field is inside the period", () => {
+  const report = buildCaneReport(withSpans, { type: "DETAILED", from: "2026-09-01", to: "2026-09-02" });
+
+  assert.equal(report.totals.partialPeriodFieldCount, 0);
+  close(report.totals.areaHa, 15);
+  close(report.totals.tch, 295 / 15);
+  assert.equal(report.fields[0]!.tchUnavailableReason, null);
+  assert.equal(report.fields[1]!.tchUnavailableReason, "NO_AREA");
+  assert.ok(report.notes.some((note) => note.startsWith("1 talhão(ões) sem área cadastrada")));
+  assert.ok(!report.notes.some((note) => note.startsWith("N/D:")));
+});
+
+test("without a period filter the report keeps the dashboard TCH definition", () => {
+  const report = buildCaneReport(withSpans, { type: "GENERAL" });
+
+  close(report.totals.tch, 295 / 15);
+  assert.equal(report.totals.partialPeriodFieldCount, 0);
 });
 
 test("report filter contract normalizes empty values and rejects invalid periods", () => {

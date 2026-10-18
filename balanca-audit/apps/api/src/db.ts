@@ -1078,6 +1078,9 @@ export type CaneReportSourceRow = {
   areaHa: number | null;
   areaAlq: number | null;
   referenceDate: string | null;
+  // First and last delivery of the field across all stored entries, regardless of the report period.
+  fieldHarvestFirstDate: string | null;
+  fieldHarvestLastDate: string | null;
   entryCount: number;
   okCount: number;
   divergentCount: number;
@@ -1086,8 +1089,11 @@ export type CaneReportSourceRow = {
 };
 
 // Reference date of an entry: its own date; entries without one fall back to the batch period.
-const caneReportReferenceDateSql =
-  "COALESCE(substr(CAST(ce.entry_date AS TEXT), 1, 10), CAST(b.period_start AS TEXT), CAST(b.report_date AS TEXT))";
+const caneReportReferenceDateSql = caneReportReferenceDate("ce", "b");
+
+function caneReportReferenceDate(entry: string, batch: string) {
+  return `COALESCE(substr(CAST(${entry}.entry_date AS TEXT), 1, 10), CAST(${batch}.period_start AS TEXT), CAST(${batch}.report_date AS TEXT))`;
+}
 
 export function listCaneReportRows(
   filters: Pick<CaneReportFilterInput, "farmId" | "fieldId" | "from" | "to">
@@ -1128,6 +1134,8 @@ export function listCaneReportRows(
         f.area_ha,
         f.area_alq,
         ${caneReportReferenceDateSql} AS reference_date,
+        span.first_date AS field_harvest_first_date,
+        span.last_date AS field_harvest_last_date,
         COUNT(*) AS entry_count,
         SUM(CASE WHEN ce.status = 'OK' THEN 1 ELSE 0 END) AS ok_count,
         SUM(CASE WHEN ce.status != 'OK' THEN 1 ELSE 0 END) AS divergent_count,
@@ -1137,8 +1145,17 @@ export function listCaneReportRows(
       JOIN import_batches b ON b.id = ce.batch_id
       LEFT JOIN fields f ON f.id = ce.field_id
       LEFT JOIN farms farm ON farm.id = COALESCE(ce.farm_id, f.farm_id)
+      LEFT JOIN (
+        SELECT all_ce.field_id,
+               MIN(${caneReportReferenceDate("all_ce", "all_b")}) AS first_date,
+               MAX(${caneReportReferenceDate("all_ce", "all_b")}) AS last_date
+        FROM cane_entries all_ce
+        JOIN import_batches all_b ON all_b.id = all_ce.batch_id
+        WHERE all_ce.field_id IS NOT NULL
+        GROUP BY all_ce.field_id
+      ) span ON span.field_id = f.id
       ${clauses.length ? `WHERE ${clauses.join(" AND ")}` : ""}
-      GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9
+      GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
       ORDER BY farm_name ASC, field_code ASC, reference_date ASC
       `
     )
@@ -1152,6 +1169,8 @@ export function listCaneReportRows(
     area_ha: number | null;
     area_alq: number | null;
     reference_date: string | null;
+    field_harvest_first_date: string | null;
+    field_harvest_last_date: string | null;
     entry_count: number | string;
     ok_count: number | string;
     divergent_count: number | string;
@@ -1169,6 +1188,8 @@ export function listCaneReportRows(
     areaHa: row.area_ha === null ? null : Number(row.area_ha),
     areaAlq: row.area_alq === null ? null : Number(row.area_alq),
     referenceDate: row.reference_date,
+    fieldHarvestFirstDate: row.field_harvest_first_date,
+    fieldHarvestLastDate: row.field_harvest_last_date,
     entryCount: Number(row.entry_count),
     okCount: Number(row.ok_count),
     divergentCount: Number(row.divergent_count),

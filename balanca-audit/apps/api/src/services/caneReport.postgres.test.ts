@@ -10,7 +10,8 @@ if (!testDatabaseUrl) {
   test.skip("Cane report integration tests require BALANCA_TEST_DATABASE_URL", () => {});
 } else {
   const testDatabase = await createPostgresTestDatabase();
-  const { createCaneEntries, createFarm, createImportBatch, db, listCaneReportRows, listFarms } = await import("../db.js");
+  const { createCaneEntries, createFarm, createImportBatch, db, getHarvestExecutiveDashboard, listCaneReportRows, listFarms } =
+    await import("../db.js");
   const { loadCaneReport } = await import("../routes/reports.js");
   const { formatTons, renderCaneReportPdf } = await import("./caneReportPdf.js");
   const require = createRequire(import.meta.url);
@@ -98,6 +99,37 @@ if (!testDatabaseUrl) {
     assert.deepEqual(sameDay.map((row) => [row.referenceDate, row.entryCount]), [["2026-09-05", 1]]);
   });
 
+  test("unfiltered report uses the harvest dashboard definitions", () => {
+    const report = loadCaneReport({ type: "GENERAL" });
+    const dashboard = getHarvestExecutiveDashboard({});
+    const round = (value: number | null) => (value === null ? null : Math.round(value * 1000) / 1000);
+
+    assert.equal(report.totals.entryCount, dashboard.totals.entries);
+    assert.equal(report.totals.farmCount, dashboard.totals.farms);
+    assert.equal(report.totals.fieldCount, dashboard.totals.fields);
+    assert.equal(round(report.totals.totalNetWeight), dashboard.totals.totalNetWeight);
+    assert.equal(round(report.totals.areaHa), dashboard.totals.areaHa);
+    assert.equal(round(report.totals.tch), dashboard.totals.tch);
+    assert.equal(round(report.totals.areaCoveragePercentage), dashboard.totals.areaCoveragePercentage);
+  });
+
+  test("period TCH uses each field's full delivery span from the database", () => {
+    const partial = loadCaneReport({ type: "DETAILED", from: "2026-09-02", to: "2026-09-03" });
+    const fieldB1 = partial.fields.find((field) => field.farmName === "FAZENDA RELATORIO CEDRO")!;
+
+    assert.equal(fieldB1.harvestFirstDate, "2026-09-02");
+    assert.equal(fieldB1.harvestLastDate, "2026-09-05");
+    assert.equal(fieldB1.tchUnavailableReason, "PARTIAL_PERIOD");
+    assert.equal(fieldB1.tch, null);
+    assert.ok(Math.abs(fieldB1.totalNetWeight - 65.75) < 1e-9);
+    assert.equal(partial.totals.tch, null);
+    assert.equal(partial.totals.areaHa, null);
+
+    const complete = loadCaneReport({ type: "DETAILED", farmId: ids.farmB, from: "2026-09-01", to: "2026-09-05" });
+    assert.equal(complete.fields[0]!.tchUnavailableReason, null);
+    assert.ok(Math.abs(complete.totals.tch! - 95.25 / 2.42) < 1e-9);
+  });
+
   test("a period without deliveries returns an empty report", () => {
     const report = loadCaneReport({ type: "GENERAL", farmId: ids.farmA, from: "2026-10-01", to: "2026-10-31" });
 
@@ -113,7 +145,8 @@ if (!testDatabaseUrl) {
 
   test("PDF printed from the stored data shows the preview totals", async () => {
     const preview = loadCaneReport({ type: "DETAILED", farmId: ids.farmA });
-    const { text } = await pdfParse(await renderCaneReportPdf(loadCaneReport({ type: "DETAILED", farmId: ids.farmA })));
+    const printed = { ...loadCaneReport({ type: "DETAILED", farmId: ids.farmA }), generatedAt: "2026-10-18T12:00:00.000Z" };
+    const { text } = await pdfParse(await renderCaneReportPdf(printed));
 
     assert.equal(formatTons(preview.totals.totalNetWeight), "89,750");
     assert.ok(text.includes("89,750"));
