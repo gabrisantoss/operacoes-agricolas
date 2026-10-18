@@ -53,6 +53,7 @@ import {
   type TransferProgress
 } from "./api";
 import { OperationalHealthPanel } from "./OperationalHealthPanel";
+import { CaneReportsView } from "./CaneReportsView";
 
 
 
@@ -96,7 +97,8 @@ type View =
   | "integrations"
   | "imports"
   | "history"
-  | "apportionment";
+  | "apportionment"
+  | "reports";
 const viewStorageKey = "oaDemo.activeView";
 const yearStorageKey = "oaDemo.selectedYear";
 const viewOptions: View[] = [
@@ -109,7 +111,8 @@ const viewOptions: View[] = [
   "integrations",
   "imports",
   "history",
-  "apportionment"
+  "apportionment",
+  "reports"
 ];
 
 
@@ -252,6 +255,7 @@ export function App() {
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [harvestReloadKey, setHarvestReloadKey] = useState(0);
+  const [reportsReloadKey, setReportsReloadKey] = useState(0);
   const [productionReloadKey, setProductionReloadKey] = useState(0);
   const [dataLoading, setDataLoading] = useState<Record<DataSlice, boolean>>(initialDataLoading);
   const loadedSlicesRef = useRef<Partial<Record<DataSlice, boolean>>>({});
@@ -466,6 +470,11 @@ export function App() {
 
     if (view === "history") {
       await loadBatches(force);
+      return;
+    }
+
+    if (view === "reports" && force) {
+      setReportsReloadKey((key) => key + 1);
     }
   }
 
@@ -538,7 +547,8 @@ export function App() {
     integrations: "Integracao pos-colheita",
     imports: "Validar colheita",
     history: "Histórico de análises",
-    apportionment: "Rateio de OS"
+    apportionment: "Rateio de OS",
+    reports: "Relatórios de safra"
   }[view];
 
   return (
@@ -582,6 +592,7 @@ export function App() {
           <NavButton active={view === "orderClosure"} icon={<CheckCircle2 />} label="Encerrar OS" onClick={() => navigate("orderClosure")} />
           <NavButton active={view === "integrations"} icon={<Share2 />} label="Integração" onClick={() => navigate("integrations")} />
           <NavButton active={view === "apportionment"} icon={<PieChart />} label="Rateio de OS" onClick={() => navigate("apportionment")} />
+          <NavButton active={view === "reports"} icon={<FileText />} label="Relatórios" onClick={() => navigate("reports")} />
           <NavButton active={view === "imports"} icon={<FileSpreadsheet />} label="Validar" onClick={() => navigate("imports")} />
           <NavButton active={view === "history"} icon={<History />} label="Histórico" onClick={() => navigate("history")} />
         </nav>
@@ -690,6 +701,7 @@ export function App() {
         {view === "apportionment" ? (
           <ApportionmentView token={token} yearQuerySuffix={yearQuerySuffix} />
         ) : null}
+        {view === "reports" ? <CaneReportsView key={reportsReloadKey} token={token} setMessage={setMessage} /> : null}
         {view === "imports" ? (
           <ImportsView
             token={token}

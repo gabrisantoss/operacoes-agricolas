@@ -5540,3 +5540,5 @@ th,
   }
 }
 .portfolioNotice { padding: 8px 12px; border-radius: 8px; background: #e0ecdb; color: #194f35; font-size: 11px; font-weight: 700; letter-spacing: .05em; }
+.caneReportPreview h3 { margin: 18px 0 8px; }
+.caneReportPreview tr.totalRow td { font-weight: 700; background: #eef4ef; }

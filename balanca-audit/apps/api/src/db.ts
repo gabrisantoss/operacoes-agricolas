@@ -35,6 +35,7 @@ import {
   summarizeUniqueHarvestAreaByDate
 } from "./services/harvestMetrics.js";
 import type {
+  CaneReportFilterInput,
   CreateFarmInput,
   CreateOrderInput,
   DashboardFilterInput,
@@ -1065,6 +1066,115 @@ export function getFieldProductionDashboard(filters: DashboardFilterInput = {}) 
     periods: periodRows,
     rows: fieldRows
   };
+}
+
+export type CaneReportSourceRow = {
+  farmId: string | null;
+  farmCode: string | null;
+  farmName: string;
+  fieldId: string | null;
+  fieldCode: string;
+  fieldName: string | null;
+  areaHa: number | null;
+  areaAlq: number | null;
+  referenceDate: string | null;
+  entryCount: number;
+  okCount: number;
+  divergentCount: number;
+  totalNetWeight: number;
+  divergentNetWeight: number;
+};
+
+// Reference date of an entry: its own date; entries without one fall back to the batch period.
+const caneReportReferenceDateSql =
+  "COALESCE(substr(CAST(ce.entry_date AS TEXT), 1, 10), CAST(b.period_start AS TEXT), CAST(b.report_date AS TEXT))";
+
+export function listCaneReportRows(
+  filters: Pick<CaneReportFilterInput, "farmId" | "fieldId" | "from" | "to">
+): CaneReportSourceRow[] {
+  const clauses: string[] = [];
+  const params: string[] = [];
+
+  if (filters.farmId) {
+    clauses.push("farm.id = ?");
+    params.push(filters.farmId);
+  }
+
+  if (filters.fieldId) {
+    clauses.push("f.id = ?");
+    params.push(filters.fieldId);
+  }
+
+  if (filters.from) {
+    clauses.push(`${caneReportReferenceDateSql} >= ?`);
+    params.push(filters.from);
+  }
+
+  if (filters.to) {
+    clauses.push(`${caneReportReferenceDateSql} <= ?`);
+    params.push(filters.to);
+  }
+
+  const rows = db
+    .prepare(
+      `
+      SELECT
+        farm.id AS farm_id,
+        COALESCE(farm.code, ce.farm_code_raw) AS farm_code,
+        CASE WHEN farm.id IS NOT NULL THEN farm.name ELSE COALESCE(ce.farm_name_raw, '-') END AS farm_name,
+        f.id AS field_id,
+        CASE WHEN f.id IS NOT NULL THEN f.code ELSE COALESCE(ce.field_code_raw, '-') END AS field_code,
+        f.name AS field_name,
+        f.area_ha,
+        f.area_alq,
+        ${caneReportReferenceDateSql} AS reference_date,
+        COUNT(*) AS entry_count,
+        SUM(CASE WHEN ce.status = 'OK' THEN 1 ELSE 0 END) AS ok_count,
+        SUM(CASE WHEN ce.status != 'OK' THEN 1 ELSE 0 END) AS divergent_count,
+        COALESCE(SUM(ce.net_weight), 0) AS total_net_weight,
+        COALESCE(SUM(CASE WHEN ce.status != 'OK' THEN ce.net_weight ELSE 0 END), 0) AS divergent_net_weight
+      FROM cane_entries ce
+      JOIN import_batches b ON b.id = ce.batch_id
+      LEFT JOIN fields f ON f.id = ce.field_id
+      LEFT JOIN farms farm ON farm.id = COALESCE(ce.farm_id, f.farm_id)
+      ${clauses.length ? `WHERE ${clauses.join(" AND ")}` : ""}
+      GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9
+      ORDER BY farm_name ASC, field_code ASC, reference_date ASC
+      `
+    )
+    .all(...params) as Array<{
+    farm_id: string | null;
+    farm_code: string | null;
+    farm_name: string;
+    field_id: string | null;
+    field_code: string;
+    field_name: string | null;
+    area_ha: number | null;
+    area_alq: number | null;
+    reference_date: string | null;
+    entry_count: number | string;
+    ok_count: number | string;
+    divergent_count: number | string;
+    total_net_weight: number | string;
+    divergent_net_weight: number | string;
+  }>;
+
+  return rows.map((row) => ({
+    farmId: row.farm_id,
+    farmCode: row.farm_code,
+    farmName: row.farm_name,
+    fieldId: row.field_id,
+    fieldCode: row.field_code,
+    fieldName: row.field_name,
+    areaHa: row.area_ha === null ? null : Number(row.area_ha),
+    areaAlq: row.area_alq === null ? null : Number(row.area_alq),
+    referenceDate: row.reference_date,
+    entryCount: Number(row.entry_count),
+    okCount: Number(row.ok_count),
+    divergentCount: Number(row.divergent_count),
+    totalNetWeight: Number(row.total_net_weight),
+    divergentNetWeight: Number(row.divergent_net_weight)
+  }));
 }
 
 export function getHarvestExecutiveDashboard(

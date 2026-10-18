@@ -70,11 +70,13 @@ py -3.12 demo.py stop-db
 
 Nenhum serviço do Windows, tarefa agendada ou regra de firewall é instalado. Portas ocupadas interrompem a inicialização; o controlador não reaproveita processos de outra instalação.
 
+**Caminhos longos no Windows:** clone o repositório em uma pasta curta, como `C:\Users\<usuario>\Documents\operacoes-agricolas`. Sem o suporte a caminhos longos habilitado, o Windows limita caminhos a 260 caracteres. Em pastas muito profundas, os arquivos temporários criados em `.demo\temp` por `demo.py test` ultrapassam esse limite, e as suítes de backup de Notas e Colaboradores falham com `unable to open database file` ou `WinError 3`. A mesma revisão passa integralmente em um caminho curto. A demonstração não altera essa configuração do sistema.
+
 ## Roteiro para conhecer a aplicação
 
 1. Entre no portal e abra **Colheita e Balança → Safra**. Compare propriedades, talhões e volume conferido.
 2. Explore **Ordens de Serviço** e os vínculos entre fazenda, talhões e frentes.
-3. Consulte divergências de pesagem e a base de frotas. Experimente os relatórios.
+3. Consulte divergências de pesagem e a base de frotas. Em **Colheita e Balança → Relatórios**, gere o relatório geral ou detalhado de safra por fazenda, talhão e período, confira a prévia e exporte o PDF.
 4. Em **Notas e Transporte**, consulte o histórico e o BI. Cadastros de fazendas/talhões e referências de colaboradores são integrados.
 5. Em **Colaboradores**, veja as situações fictícias de CNH e os filtros da fila de acompanhamento.
 6. Em **Análises**, filtre os apontamentos e compare horas paradas, motivos e eficiência por turno.

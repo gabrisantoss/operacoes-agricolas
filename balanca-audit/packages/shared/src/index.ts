@@ -187,6 +187,34 @@ const optionalIdSchema = z.preprocess(
   z.string().trim().optional()
 );
 
+export const caneReportTypes = ["GENERAL", "DETAILED"] as const;
+
+const optionalReportDateSchema = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .refine((value) => {
+      const parsed = new Date(`${value}T00:00:00Z`);
+      return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+    })
+    .optional()
+);
+
+export const caneReportFilterSchema = z
+  .object({
+    type: z.enum(caneReportTypes).default("GENERAL"),
+    farmId: optionalIdSchema,
+    fieldId: optionalIdSchema,
+    from: optionalReportDateSchema,
+    to: optionalReportDateSchema
+  })
+  .refine((filters) => !filters.from || !filters.to || filters.from <= filters.to, {
+    message: "A data inicial deve ser anterior ou igual a data final.",
+    path: ["to"]
+  });
+
 
 
 
@@ -221,6 +249,8 @@ export type BulkCloseOrdersInput = z.infer<typeof bulkCloseOrdersSchema>;
 export type ImportMappingInput = z.infer<typeof importMappingSchema>;
 export type ImportOptionsInput = z.infer<typeof importOptionsSchema>;
 export type DashboardFilterInput = z.infer<typeof dashboardFilterSchema>;
+export type CaneReportType = (typeof caneReportTypes)[number];
+export type CaneReportFilterInput = z.infer<typeof caneReportFilterSchema>;
 
 export type FleetMovementInput = z.infer<typeof fleetMovementInputSchema>;
 export type FleetMovementStatusInput = z.infer<typeof fleetMovementStatusInputSchema>;

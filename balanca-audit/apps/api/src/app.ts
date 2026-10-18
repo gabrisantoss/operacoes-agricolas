@@ -14,6 +14,7 @@ import { importsRouter } from "./routes/imports.js";
 import { ordersRouter } from "./routes/orders.js";
 import { postHarvestIntegrationsRouter } from "./routes/post-harvest-integrations.js";
 import { apportionmentRouter } from "./routes/apportionment.js";
+import { reportsRouter } from "./routes/reports.js";
 import { requireAuth, requireRoles } from "./middleware/requireAuth.js";
 import { HttpError } from "./errors.js";
 import { env } from "./env.js";
@@ -71,6 +72,7 @@ export function createApp() {
   app.use("/post-harvest-integrations", requireAuth, postHarvestIntegrationsRouter);
   app.use("/imports", requireAuth, importsRouter);
   app.use("/apportionment", requireAuth, apportionmentRouter);
+  app.use("/reports", requireAuth, reportsRouter);
 
   app.get("/safras", requireAuth, (_req, res) => {
     const years = listAvailableYears();
