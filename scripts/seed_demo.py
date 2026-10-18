@@ -6,7 +6,7 @@ It never deletes records entered while exploring the demonstration.
 from __future__ import annotations
 
 import csv
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 import hashlib
 import json
 from pathlib import Path
@@ -53,6 +53,12 @@ def seed(module, callback):
         print(module + ": cenario ficticio preparado")
 
 
+def closed_order_end(last_delivery_day):
+    # Closed after the last fictional weighing (entry_date = TODAY). Noon UTC keeps the same calendar day
+    # in UTC and in UTC-3, so no entry linked to the order falls after its end date (importer rule).
+    return datetime.combine(last_delivery_day, time(12, 0), timezone.utc)
+
+
 def balance(conn):
     for i, name in enumerate(FARMS, 1):
         farm_id = uid(f"farm-{i}")
@@ -69,7 +75,7 @@ def balance(conn):
         closed = i > 6
         insert(conn, "harvest_orders", id=order_id, number=str(90000+i), front_number=i if i<=4 else None,
                farm_id=farm_id, status="CLOSED" if closed else "ACTIVE", start_date=start,
-               end_date=datetime.combine(TODAY-timedelta(days=1), datetime.min.time(), timezone.utc) if closed else None,
+               end_date=closed_order_end(TODAY) if closed else None,
                origin="DEMO_FICTICIA")
         for j in range(1, 5):
             insert(conn, "harvest_order_fields", id=uid(f"order-field-{i}-{j}"), order_id=order_id, field_id=uid(f"field-{i}-{j}"))

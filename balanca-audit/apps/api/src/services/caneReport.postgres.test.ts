@@ -22,6 +22,8 @@ if (!testDatabaseUrl) {
     listFarms
   } = await import("../db.js");
   const { loadCaneReport } = await import("../routes/reports.js");
+  const { readApportionments } = await import("../routes/apportionment.js");
+  const { apportionmentResultMetrics } = await import("./apportionment.js");
   const { formatTons, renderCaneReportPdf } = await import("./caneReportPdf.js");
 
   const ids = { farmA: "", farmB: "", fieldA1: "", fieldA2: "", fieldB1: "" };
@@ -99,42 +101,54 @@ if (!testDatabaseUrl) {
     assert.equal(report.totals.divergentCount, 2);
   });
 
-  test("only the field of the closed order has proven harvested area", () => {
+  test("only the field of the closed order counts as closed", () => {
     const report = loadCaneReport({ type: "DETAILED" });
     const byField = new Map(report.fields.map((field) => [`${field.farmName}/${field.fieldCode}`, field]));
     const a1 = byField.get("FAZENDA RELATORIO AURORA/1")!;
 
     assert.equal(a1.evidence, "CLOSED_COMPLETE");
     assert.equal(a1.evidenceLabel, "OS OS-REL-A encerrada");
-    assert.ok(Math.abs(a1.effectiveTch! - 61.75 / 4.84) < 1e-9);
+    assert.ok(Math.abs(a1.closedFieldsTch! - 61.75 / 4.84) < 1e-9);
     assert.equal(byField.get("FAZENDA RELATORIO AURORA/2")!.evidence, "NO_AREA");
     assert.equal(byField.get("FAZENDA RELATORIO CEDRO/1")!.evidence, "OPEN");
     assert.equal(byField.get("FORNECEDOR SEM CADASTRO/9")!.evidence, "NO_AREA");
 
     assert.ok(Math.abs(report.totals.registeredAreaHa - (4.84 + 2.42)) < 1e-9);
-    assert.ok(Math.abs(report.totals.provenAreaHa - 4.84) < 1e-9);
-    assert.ok(Math.abs(report.totals.effectiveTch! - 61.75 / 4.84) < 1e-9);
-    assert.equal(report.totals.provenFieldCount, 1);
+    assert.ok(Math.abs(report.totals.closedAreaHa - 4.84) < 1e-9);
+    assert.ok(Math.abs(report.totals.closedFieldsTch! - 61.75 / 4.84) < 1e-9);
+    assert.equal(report.totals.closedFieldCount, 1);
   });
 
-  test("a period that cuts the closed order leaves its TCH unproven", () => {
+  test("closed fields match the apportionment of the closed order", () => {
+    const report = loadCaneReport({ type: "GENERAL", farmId: ids.farmA });
+    const apportionment = readApportionments().find((result) => result.orderNumber === "OS-REL-A")!;
+    const metrics = apportionmentResultMetrics(apportionment);
+
+    assert.ok(Math.abs(report.totals.closedNetWeight - metrics.weightTons) < 1e-9);
+    assert.ok(Math.abs(report.totals.closedAreaHa - apportionment.totalAreaHa) < 1e-9);
+    assert.ok(Math.abs(report.totals.closedFieldsTch! - metrics.tch) < 1e-9);
+    // The farm total also carries cane outside the order (A2 without order), which the apportionment leaves out.
+    assert.ok(report.totals.totalNetWeight > metrics.weightTons);
+  });
+
+  test("a period that cuts the closed order leaves its TCH unavailable", () => {
     const clipped = loadCaneReport({ type: "DETAILED", farmId: ids.farmA, from: "2026-09-02", to: "2026-09-03" });
     const a1 = clipped.fields.find((field) => field.fieldCode === "1")!;
 
     assert.equal(a1.evidence, "CLOSED_CLIPPED");
-    assert.equal(a1.effectiveTch, null);
-    assert.equal(clipped.totals.effectiveTch, null);
+    assert.equal(a1.closedFieldsTch, null);
+    assert.equal(clipped.totals.closedFieldsTch, null);
 
     const whole = loadCaneReport({ type: "DETAILED", fieldId: ids.fieldA1, farmId: ids.farmA, from: "2026-09-01", to: "2026-09-02" });
     assert.equal(whole.fields[0]!.evidence, "CLOSED_COMPLETE");
   });
 
-  test("an active order stays unproven even with every delivery inside the period", () => {
+  test("an active order stays open even with every delivery inside the period", () => {
     const report = loadCaneReport({ type: "DETAILED", farmId: ids.farmB, from: "2026-09-01", to: "2026-09-30" });
 
     assert.equal(report.totals.entryCount, 3);
     assert.equal(report.fields[0]!.evidence, "OPEN");
-    assert.equal(report.totals.effectiveTch, null);
+    assert.equal(report.totals.closedFieldsTch, null);
     assert.ok(Math.abs(report.totals.registeredAreaHa - 2.42) < 1e-9);
   });
 
@@ -158,7 +172,7 @@ if (!testDatabaseUrl) {
     const report = loadCaneReport({ type: "GENERAL", farmId: ids.farmA, from: "2026-10-01", to: "2026-10-31" });
 
     assert.equal(report.isEmpty, true);
-    assert.equal(report.totals.effectiveTch, null);
+    assert.equal(report.totals.closedFieldsTch, null);
     assert.deepEqual(report.farms, []);
   });
 

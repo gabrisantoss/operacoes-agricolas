@@ -99,7 +99,7 @@ function drawContinuationHeader(doc: PDFKit.PDFDocument, report: CaneReport) {
 
 function drawTotals(doc: PDFKit.PDFDocument, report: CaneReport) {
   const { totals } = report;
-  const basis = `${formatInteger(totals.provenFieldCount)} de ${formatInteger(totals.fieldCount)} talhões`;
+  const basis = `${formatInteger(totals.closedFieldCount)} de ${formatInteger(totals.fieldCount)} talhões`;
   const cards: Array<[string, string, string?]> = [
     ["Cana entregue (t)", formatTons(totals.totalNetWeight)],
     ["Cargas", formatInteger(totals.entryCount)],
@@ -107,8 +107,8 @@ function drawTotals(doc: PDFKit.PDFDocument, report: CaneReport) {
     ["Fazendas / talhões", `${formatInteger(totals.farmCount)} / ${formatInteger(totals.fieldCount)}`],
     ["Dias com entrega", formatInteger(totals.deliveryDays)],
     ["Área cadastrada (ha)", formatDecimal(totals.registeredAreaHa)],
-    ["Área colhida comprovada (ha)", formatDecimal(totals.provenAreaHa), basis],
-    [effectiveTchLabel(report), formatIndicator(totals.effectiveTch), basis],
+    ["Área dos talhões encerrados (ha)", formatDecimal(totals.closedAreaHa), basis],
+    [closedFieldsTchLabel(report), formatIndicator(totals.closedFieldsTch), basis],
     ["Cargas divergentes", formatInteger(totals.divergentCount)]
   ];
   const gap = 5;
@@ -135,9 +135,9 @@ function drawTotals(doc: PDFKit.PDFDocument, report: CaneReport) {
 }
 
 // "Parcial" whenever the effective TCH covers only part of the fields in the report.
-export function effectiveTchLabel(report: Pick<CaneReport, "totals">) {
-  const { provenFieldCount, fieldCount } = report.totals;
-  return provenFieldCount > 0 && provenFieldCount < fieldCount ? "TCH efetivo parcial (t/ha)" : "TCH efetivo (t/ha)";
+export function closedFieldsTchLabel(report: Pick<CaneReport, "totals">) {
+  const { closedFieldCount, fieldCount } = report.totals;
+  return closedFieldCount > 0 && closedFieldCount < fieldCount ? "TCH talhões encerrados, parcial (t/ha)" : "TCH talhões encerrados (t/ha)";
 }
 
 function drawGeneral(doc: PDFKit.PDFDocument, report: CaneReport) {
@@ -169,7 +169,7 @@ function drawDetailed(doc: PDFKit.PDFDocument, report: CaneReport) {
     { label: "Cana (t)", width: 72, align: "right", value: (row) => formatTons(row.totalNetWeight) },
     { label: "Média/carga (t)", width: 66, align: "right", value: (row) => formatTons(row.averageNetWeightPerEntry) },
     { label: "Situação da colheita", width: 142, value: (row) => row.evidenceLabel },
-    { label: "TCH efetivo", width: 56, align: "right", value: (row) => formatIndicator(row.effectiveTch) },
+    { label: "TCH encerr.", width: 56, align: "right", value: (row) => formatIndicator(row.closedFieldsTch) },
     { label: "Dias", width: 32, align: "right", value: (row) => (row.key === "subtotal" ? "-" : formatInteger(row.deliveryDays)) },
     { label: "Primeira", width: 56, value: (row) => formatReportDate(row.firstDate) },
     { label: "Última", width: 56, value: (row) => formatReportDate(row.lastDate) },
@@ -192,10 +192,10 @@ function drawDetailed(doc: PDFKit.PDFDocument, report: CaneReport) {
       totalNetWeight: farm.totalNetWeight,
       averageNetWeightPerEntry: farm.entryCount > 0 ? farm.totalNetWeight / farm.entryCount : null,
       evidence: "OPEN",
-      evidenceLabel: `${formatInteger(farm.provenFieldCount)} de ${formatInteger(farm.fieldCount)} comprovados`,
+      evidenceLabel: `${formatInteger(farm.closedFieldCount)} de ${formatInteger(farm.fieldCount)} encerrados`,
       closedOrderNumber: null,
       closedOrderEndDate: null,
-      effectiveTch: farm.effectiveTch,
+      closedFieldsTch: farm.closedFieldsTch,
       deliveryDays: 0,
       firstDate: farm.firstDate,
       lastDate: farm.lastDate
@@ -215,9 +215,9 @@ function farmColumns(): Column<CaneReportFarmRow>[] {
     { label: "Cana (t)", width: 76, align: "right", value: (row) => formatTons(row.totalNetWeight) },
     { label: "% do total", width: 46, align: "right", value: (row) => formatDecimal(row.shareOfTotal, 1) },
     { label: "Área cad. (ha)", width: 60, align: "right", value: (row) => formatDecimal(row.registeredAreaHa) },
-    { label: "Área comprov. (ha)", width: 70, align: "right", value: (row) => formatDecimal(row.provenAreaHa) },
-    { label: "Comprovados", width: 58, align: "right", value: (row) => `${formatInteger(row.provenFieldCount)}/${formatInteger(row.fieldCount)}` },
-    { label: "TCH efetivo", width: 54, align: "right", value: (row) => formatIndicator(row.effectiveTch) },
+    { label: "Área encerr. (ha)", width: 70, align: "right", value: (row) => formatDecimal(row.closedAreaHa) },
+    { label: "Encerrados", width: 58, align: "right", value: (row) => `${formatInteger(row.closedFieldCount)}/${formatInteger(row.fieldCount)}` },
+    { label: "TCH encerr.", width: 54, align: "right", value: (row) => formatIndicator(row.closedFieldsTch) },
     { label: "Divergentes", width: 54, align: "right", value: (row) => formatInteger(row.divergentCount) },
     { label: "Período", width: 102, value: (row) => `${formatReportDate(row.firstDate)} a ${formatReportDate(row.lastDate)}` }
   ];
@@ -234,10 +234,10 @@ function farmTotalRow(report: CaneReport): CaneReportFarmRow {
     totalNetWeight: report.totals.totalNetWeight,
     shareOfTotal: report.totals.totalNetWeight > 0 ? 100 : 0,
     registeredAreaHa: report.totals.registeredAreaHa,
-    provenAreaHa: report.totals.provenAreaHa,
-    provenFieldCount: report.totals.provenFieldCount,
-    provenNetWeight: report.totals.provenNetWeight,
-    effectiveTch: report.totals.effectiveTch,
+    closedAreaHa: report.totals.closedAreaHa,
+    closedFieldCount: report.totals.closedFieldCount,
+    closedNetWeight: report.totals.closedNetWeight,
+    closedFieldsTch: report.totals.closedFieldsTch,
     firstDate: report.totals.firstDate,
     lastDate: report.totals.lastDate
   };

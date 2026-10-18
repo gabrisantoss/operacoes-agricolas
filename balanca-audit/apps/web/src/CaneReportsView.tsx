@@ -26,10 +26,10 @@ type FarmRow = {
   totalNetWeight: number;
   shareOfTotal: number;
   registeredAreaHa: number;
-  provenAreaHa: number;
-  provenFieldCount: number;
-  provenNetWeight: number;
-  effectiveTch: number | null;
+  closedAreaHa: number;
+  closedFieldCount: number;
+  closedNetWeight: number;
+  closedFieldsTch: number | null;
   firstDate: string | null;
   lastDate: string | null;
 };
@@ -52,10 +52,10 @@ type CaneReport = {
     firstDate: string | null;
     lastDate: string | null;
     registeredAreaHa: number;
-    provenAreaHa: number;
-    provenFieldCount: number;
-    provenNetWeight: number;
-    effectiveTch: number | null;
+    closedAreaHa: number;
+    closedFieldCount: number;
+    closedNetWeight: number;
+    closedFieldsTch: number | null;
   };
   farms: FarmRow[];
   fields: Array<{
@@ -69,7 +69,7 @@ type CaneReport = {
     totalNetWeight: number;
     averageNetWeightPerEntry: number | null;
     evidenceLabel: string;
-    effectiveTch: number | null;
+    closedFieldsTch: number | null;
     deliveryDays: number;
     firstDate: string | null;
     lastDate: string | null;
@@ -247,8 +247,8 @@ export function CaneReportsView({ token, setMessage }: { token: string; setMessa
                 <ReportMetric label="Fazendas / talhões" value={`${report.totals.farmCount} / ${report.totals.fieldCount}`} />
                 <ReportMetric label="Dias com entrega" value={formatInteger(report.totals.deliveryDays)} />
                 <ReportMetric label="Área cadastrada (ha)" value={formatDecimal(report.totals.registeredAreaHa)} />
-                <ReportMetric label="Área colhida comprovada (ha)" value={formatDecimal(report.totals.provenAreaHa)} caption={provenBasis(report)} />
-                <ReportMetric label={effectiveTchLabel(report)} value={formatIndicator(report.totals.effectiveTch)} caption={provenBasis(report)} />
+                <ReportMetric label="Área dos talhões encerrados (ha)" value={formatDecimal(report.totals.closedAreaHa)} caption={closedBasis(report)} />
+                <ReportMetric label={closedFieldsTchLabel(report)} value={formatIndicator(report.totals.closedFieldsTch)} caption={closedBasis(report)} />
                 <ReportMetric label="Cargas divergentes" value={formatInteger(report.totals.divergentCount)} />
               </section>
               {report.notes.map((note) => (
@@ -327,7 +327,7 @@ function DetailedTables({ report }: { report: CaneReport }) {
                   <th>Cana (t)</th>
                   <th>Média/carga (t)</th>
                   <th>Situação da colheita</th>
-                  <th>TCH efetivo</th>
+                  <th>TCH encerr.</th>
                   <th>Dias</th>
                   <th>Primeira</th>
                   <th>Última</th>
@@ -346,7 +346,7 @@ function DetailedTables({ report }: { report: CaneReport }) {
                       <td>{formatTons(field.totalNetWeight)}</td>
                       <td>{formatTons(field.averageNetWeightPerEntry)}</td>
                       <td>{field.evidenceLabel}</td>
-                      <td>{formatIndicator(field.effectiveTch)}</td>
+                      <td>{formatIndicator(field.closedFieldsTch)}</td>
                       <td>{formatInteger(field.deliveryDays)}</td>
                       <td>{formatDate(field.firstDate)}</td>
                       <td>{formatDate(field.lastDate)}</td>
@@ -361,9 +361,9 @@ function DetailedTables({ report }: { report: CaneReport }) {
                   <td>{formatTons(farm.totalNetWeight)}</td>
                   <td>{formatTons(farm.entryCount > 0 ? farm.totalNetWeight / farm.entryCount : null)}</td>
                   <td>
-                    {farm.provenFieldCount} de {farm.fieldCount} comprovados
+                    {farm.closedFieldCount} de {farm.fieldCount} encerrados
                   </td>
-                  <td>{formatIndicator(farm.effectiveTch)}</td>
+                  <td>{formatIndicator(farm.closedFieldsTch)}</td>
                   <td>-</td>
                   <td>{formatDate(farm.firstDate)}</td>
                   <td>{formatDate(farm.lastDate)}</td>
@@ -391,10 +391,10 @@ function FarmTable({ report }: { report: CaneReport }) {
     totalNetWeight: report.totals.totalNetWeight,
     shareOfTotal: report.totals.totalNetWeight > 0 ? 100 : 0,
     registeredAreaHa: report.totals.registeredAreaHa,
-    provenAreaHa: report.totals.provenAreaHa,
-    provenFieldCount: report.totals.provenFieldCount,
-    provenNetWeight: report.totals.provenNetWeight,
-    effectiveTch: report.totals.effectiveTch,
+    closedAreaHa: report.totals.closedAreaHa,
+    closedFieldCount: report.totals.closedFieldCount,
+    closedNetWeight: report.totals.closedNetWeight,
+    closedFieldsTch: report.totals.closedFieldsTch,
     firstDate: report.totals.firstDate,
     lastDate: report.totals.lastDate
   };
@@ -411,9 +411,9 @@ function FarmTable({ report }: { report: CaneReport }) {
             <th>Cana (t)</th>
             <th>% do total</th>
             <th>Área cad. (ha)</th>
-            <th>Área comprov. (ha)</th>
-            <th>Comprovados</th>
-            <th>TCH efetivo</th>
+            <th>Área encerr. (ha)</th>
+            <th>Encerrados</th>
+            <th>TCH encerr.</th>
             <th>Divergentes</th>
             <th>Período</th>
           </tr>
@@ -428,11 +428,11 @@ function FarmTable({ report }: { report: CaneReport }) {
               <td>{formatTons(farm.totalNetWeight)}</td>
               <td>{formatDecimal(farm.shareOfTotal, 1)}</td>
               <td>{formatDecimal(farm.registeredAreaHa)}</td>
-              <td>{formatDecimal(farm.provenAreaHa)}</td>
+              <td>{formatDecimal(farm.closedAreaHa)}</td>
               <td>
-                {farm.provenFieldCount}/{farm.fieldCount}
+                {farm.closedFieldCount}/{farm.fieldCount}
               </td>
-              <td>{formatIndicator(farm.effectiveTch)}</td>
+              <td>{formatIndicator(farm.closedFieldsTch)}</td>
               <td>{formatInteger(farm.divergentCount)}</td>
               <td>
                 {formatDate(farm.firstDate)} a {formatDate(farm.lastDate)}
@@ -455,13 +455,13 @@ function ReportMetric({ label, value, caption }: { label: string; value: string;
   );
 }
 
-function provenBasis(report: CaneReport) {
-  return `${report.totals.provenFieldCount} de ${report.totals.fieldCount} talhões`;
+function closedBasis(report: CaneReport) {
+  return `${report.totals.closedFieldCount} de ${report.totals.fieldCount} talhões`;
 }
 
-function effectiveTchLabel(report: CaneReport) {
-  const { provenFieldCount, fieldCount } = report.totals;
-  return provenFieldCount > 0 && provenFieldCount < fieldCount ? "TCH efetivo parcial (t/ha)" : "TCH efetivo (t/ha)";
+function closedFieldsTchLabel(report: CaneReport) {
+  const { closedFieldCount, fieldCount } = report.totals;
+  return closedFieldCount > 0 && closedFieldCount < fieldCount ? "TCH talhões encerrados, parcial (t/ha)" : "TCH talhões encerrados (t/ha)";
 }
 
 function reportQuery(filters: ReportFilters) {

@@ -63,23 +63,23 @@ test("general report totals come from the same rows as farm and daily breakdowns
   assert.deepEqual(report.fields, []);
 });
 
-test("registered area is not harvested area and effective TCH uses only proven fields", () => {
+test("registered area and the TCH of closed fields are kept apart", () => {
   const report = buildCaneReport(fixture, { type: "GENERAL" });
   const [farmA, farmB] = report.farms;
 
   close(report.totals.registeredAreaHa, 15);
-  close(report.totals.provenAreaHa, 10);
-  assert.equal(report.totals.provenFieldCount, 1);
-  close(report.totals.provenNetWeight, 150);
-  close(report.totals.effectiveTch, 15);
+  close(report.totals.closedAreaHa, 10);
+  assert.equal(report.totals.closedFieldCount, 1);
+  close(report.totals.closedNetWeight, 150);
+  close(report.totals.closedFieldsTch, 15);
   assert.deepEqual(report.totals.evidenceCounts, { CLOSED_COMPLETE: 1, CLOSED_CLIPPED: 0, OPEN: 1, MIXED: 0, NO_AREA: 1 });
 
   close(farmA!.registeredAreaHa, 10);
-  close(farmA!.effectiveTch, 15);
+  close(farmA!.closedFieldsTch, 15);
   close(farmB!.registeredAreaHa, 5);
-  assert.equal(farmB!.provenAreaHa, 0);
-  assert.equal(farmB!.effectiveTch, null);
-  assert.ok(report.notes.some((note) => note.startsWith("TCH efetivo parcial: calculado só com 1 de 3 talhões (150,000 t de 295,000 t).")));
+  assert.equal(farmB!.closedAreaHa, 0);
+  assert.equal(farmB!.closedFieldsTch, null);
+  assert.ok(report.notes.some((note) => note.startsWith("TCH talhões encerrados parcial: calculado só com 1 de 3 talhões (150,000 t de 295,000 t).")));
   assert.ok(report.notes.some((note) => note.includes("1 sem OS encerrada; 1 sem área cadastrada")));
 });
 
@@ -89,15 +89,15 @@ test("detailed report shows the harvest evidence of every field", () => {
 
   assert.equal(a1!.evidence, "CLOSED_COMPLETE");
   assert.equal(a1!.evidenceLabel, "OS 9001 encerrada");
-  close(a1!.effectiveTch, 15);
+  close(a1!.closedFieldsTch, 15);
   close(a1!.registeredAreaHa, 10);
   assert.equal(a1!.deliveryDays, 2);
   assert.equal(a2!.evidence, "NO_AREA");
   assert.equal(a2!.registeredAreaHa, null);
-  assert.equal(a2!.effectiveTch, null);
+  assert.equal(a2!.closedFieldsTch, null);
   assert.equal(b1!.evidence, "OPEN");
   assert.equal(b1!.evidenceLabel, "Sem OS encerrada");
-  assert.equal(b1!.effectiveTch, null);
+  assert.equal(b1!.closedFieldsTch, null);
   close(b1!.registeredAreaHa, 5);
 });
 
@@ -106,23 +106,23 @@ test("deliveries all inside the period do not prove a finished harvest", () => {
   const report = buildCaneReport(onlyB1, { type: "DETAILED", from: "2026-09-01", to: "2026-09-30" });
 
   assert.equal(report.fields[0]!.evidence, "OPEN");
-  assert.equal(report.totals.effectiveTch, null);
-  assert.equal(report.totals.provenAreaHa, 0);
+  assert.equal(report.totals.closedFieldsTch, null);
+  assert.equal(report.totals.closedAreaHa, 0);
   close(report.totals.registeredAreaHa, 5);
-  assert.ok(report.notes.some((note) => note.startsWith("TCH efetivo N/D: nenhum dos 1 talhão(ões) tem colheita comprovada no recorte (1 sem OS encerrada).")));
+  assert.ok(report.notes.some((note) => note.startsWith("TCH talhões encerrados N/D: nenhum dos 1 talhão(ões) tem OS encerrada com todas as entregas no recorte (1 sem OS encerrada).")));
 });
 
-test("a closed order with entries outside the report is not proven", () => {
+test("a closed order with entries outside the report is not counted as closed", () => {
   const clipped = fixture.filter((item) => item.fieldId === "a1" && item.referenceDate === "2026-09-02");
   const report = buildCaneReport(clipped, { type: "DETAILED", from: "2026-09-02" });
 
   assert.equal(report.fields[0]!.evidence, "CLOSED_CLIPPED");
   assert.equal(report.fields[0]!.evidenceLabel, "OS 9001 encerrada fora do recorte");
-  assert.equal(report.fields[0]!.effectiveTch, null);
-  assert.equal(report.totals.effectiveTch, null);
+  assert.equal(report.fields[0]!.closedFieldsTch, null);
+  assert.equal(report.totals.closedFieldsTch, null);
 });
 
-test("entries from more than one order are not proven", () => {
+test("entries from more than one order are not counted as closed", () => {
   const mixed = [
     ...fixture.filter((item) => item.fieldId === "a1"),
     row({ fieldId: "a1", fieldCode: "1", areaHa: 10, areaAlq: 4.132, referenceDate: "2026-09-04", entryCount: 1, okCount: 1, totalNetWeight: 20 })
@@ -131,7 +131,7 @@ test("entries from more than one order are not proven", () => {
 
   assert.equal(report.fields[0]!.evidence, "MIXED");
   assert.equal(report.fields[0]!.evidenceLabel, "Parte das entregas sem OS");
-  assert.equal(report.totals.effectiveTch, null);
+  assert.equal(report.totals.closedFieldsTch, null);
 
   const twoOrders = [
     ...fixture.filter((item) => item.fieldId === "a1"),
@@ -140,12 +140,12 @@ test("entries from more than one order are not proven", () => {
   assert.equal(buildCaneReport(twoOrders, { type: "DETAILED" }).fields[0]!.evidenceLabel, "Mais de uma OS");
 });
 
-test("effective TCH is not marked partial when every field is proven", () => {
+test("closed-field TCH is not marked partial when every field is closed", () => {
   const report = buildCaneReport(fixture.filter((item) => item.fieldId === "a1"), { type: "GENERAL" });
 
-  close(report.totals.effectiveTch, 15);
-  assert.equal(report.totals.provenFieldCount, report.totals.fieldCount);
-  assert.ok(!report.notes.some((note) => note.startsWith("TCH efetivo parcial") || note.startsWith("TCH efetivo N/D")));
+  close(report.totals.closedFieldsTch, 15);
+  assert.equal(report.totals.closedFieldCount, report.totals.fieldCount);
+  assert.ok(!report.notes.some((note) => note.startsWith("TCH talhões encerrados parcial") || note.startsWith("TCH talhões encerrados N/D")));
 });
 
 test("fields with the same code on different farms stay separate", () => {
@@ -164,7 +164,7 @@ test("an empty selection produces an explicit empty report instead of invented v
   assert.equal(report.isEmpty, true);
   assert.equal(report.totals.entryCount, 0);
   assert.equal(report.totals.averageNetWeightPerEntry, null);
-  assert.equal(report.totals.effectiveTch, null);
+  assert.equal(report.totals.closedFieldsTch, null);
   assert.equal(report.totals.firstDate, null);
   assert.deepEqual(report.farms, []);
   assert.deepEqual(report.notes, []);

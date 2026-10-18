@@ -32,29 +32,35 @@ O workflow do GitHub verifica arquivos versionados, sintaxe Python, compilação
 - Atualização dos contadores de CNH após o carregamento dos dados.
 - Testes de segurança dos utilitários de restauração e proteção do histórico de notas.
 
-## Central de relatórios e painel Safra
+## Central de relatórios, Rateio, OS e painel Safra
 
-A prévia e o PDF da central são gerados a partir do mesmo objeto calculado. A central separa três medidas de área:
+A prévia e o PDF da central são gerados a partir do mesmo objeto calculado. Datas disponíveis nos dados: `entry_date`, que é a data da pesagem ou entrada na balança; a data e o período do lote importado, que são a data do relatório; e `created_at`, que é a data do registro. A data da operação de corte não é armazenada. A central usa a data da pesagem, ou o início do período do lote quando ela falta.
 
-- **Área cadastrada:** área do cadastro dos talhões que têm entregas no recorte. É um dado de cadastro e não comprova colheita.
-- **Área colhida comprovada:** área cadastrada apenas dos talhões cuja OS está **encerrada** e cujas entregas vinculadas a essa OS estão **todas** no recorte. Ter todas as entregas registradas dentro do período não basta: sem OS encerrada, a colheita pode continuar.
-- **TCH efetivo:** cana desses talhões comprovados dividida pela área colhida comprovada. Aparece como **N/D** quando nenhum talhão é comprovado. Quando só parte deles é comprovada, o indicador recebe o rótulo **"TCH efetivo parcial"**, informa a base (talhões e toneladas usados) e não representa a produtividade de todo o recorte.
+Medidas de área e TCH:
 
-Cada talhão do relatório detalhado mostra sua situação: OS encerrada, OS encerrada fora do recorte, sem OS encerrada, mais de uma OS ou sem área cadastrada. A regra segue o Rateio de OS: a produção de uma OS são as entregas vinculadas a ela, e a área usada é a área cadastrada dos talhões da OS.
+- **Área cadastrada:** área do cadastro dos talhões com entregas no recorte.
+- **Talhões encerrados:** talhões cuja OS foi encerrada e cujas entregas vinculadas a essa OS estão todas no recorte. O encerramento da OS é o registro de fim da colheita: libera o pós-colheita e é a base do Rateio. A área efetivamente colhida não é medida. Por isso a central fala em **área dos talhões encerrados**, que é a área cadastrada deles, e não em área colhida.
+- **TCH talhões encerrados:** cana desses talhões dividida por essa área. Aparece como N/D quando nenhum talhão está nessa situação. Quando só parte dos talhões está, recebe o rótulo "parcial" e informa a base. A situação de cada talhão aparece no relatório detalhado.
 
-Definições compartilhadas com o painel Safra: cana entregue (soma do peso líquido), cargas (número de entradas), regras de identidade de fazenda e talhão, e área cadastrada dos talhões com área em hectares e alqueires. Sem filtros, um teste automatizado confirma que cargas, talhões, cana e área cadastrada são iguais nos dois.
+Compatibilidade de totais:
 
-Diferenças legítimas:
+| Visão | Cana | Área | TCH |
+| --- | --- | --- | --- |
+| Painel Safra | Todas as entradas do filtro | Cadastrada, dos talhões com entregas | Toda a cana ÷ área cadastrada (acompanhamento, inclui talhões em colheita) |
+| Rateio de OS / OS encerradas | Entradas vinculadas à OS | Cadastrada, dos talhões colhidos da OS | Cana da OS ÷ área |
+| Central de relatórios | Todas as entradas do filtro, igual ao painel | Cadastrada, igual ao painel, e a dos talhões encerrados | Só talhões encerrados com a OS completa no recorte; nesse caso é igual ao Rateio |
 
-| Aspecto | Painel Safra | Central de relatórios |
-| --- | --- | --- |
-| TCH | Toda a cana entregue ÷ área cadastrada dos talhões com área. É uma razão de acompanhamento e inclui talhões ainda em colheita | TCH efetivo só com talhões de colheita comprovada por OS encerrada; N/D ou "parcial" com a base informada |
-| Área | Área cadastrada dos talhões com entregas | Mostra a área cadastrada e, separadamente, a área colhida comprovada |
-| Período | Safra (ano) ou período do lote do PDF, por sobreposição | Data de referência da entrada (sem data, início do período do lote) |
-| Filtro de fazenda | Fazenda gravada na entrada | Também a fazenda do talhão vinculado |
-| Arredondamento | Três casas no servidor | Valor completo, formatado com três casas para tonelada e duas para área e TCH |
+Testes automatizados confirmam: cargas, talhões, cana e área cadastrada da central sem filtro iguais ao painel; e cana, área e TCH dos talhões encerrados iguais ao Rateio da OS. Diferenças legítimas:
 
-Os testes de PDF da central leem o texto dos streams gerados pelo PDFKit, e não usam o `pdf-parse`. O pdf.js 1.10 embutido nele rejeita intermitentemente arquivos válidos, que Poppler e PDFium abrem sem erro.
+- O total da central inclui cana sem OS ou de OS ativas, que o Rateio não considera.
+- Talhões com entregas de uma OS encerrada misturadas com entregas sem OS aparecem como "Parte das entregas sem OS". O Rateio usa só a parte vinculada; a central não calcula TCH para eles.
+- A central filtra o período pela data de referência da entrada. O painel usa a safra ou o período do lote do PDF.
+- O filtro de fazenda da central também considera a fazenda do talhão vinculado.
+- O painel arredonda para três casas no servidor; a central mantém o valor completo e formata na exibição.
+
+O seed fictício encerra as OS 90007 e 90008 ao meio-dia UTC do último dia de pesagens. Assim nenhuma entrega vinculada fica depois do encerramento, coerente com a regra do importador, que só vincula uma pesagem a uma OS se a data estiver entre o início e o encerramento. Bancos demonstrativos criados antes dessa correção mantêm os dados antigos até um novo `setup`, porque o seed só roda uma vez por banco.
+
+Os testes de PDF da central leem o texto dos streams gerados pelo PDFKit, sem o `pdf-parse`. O pdf.js 1.10 embutido nele rejeita intermitentemente arquivos válidos.
 
 ## Limites
 

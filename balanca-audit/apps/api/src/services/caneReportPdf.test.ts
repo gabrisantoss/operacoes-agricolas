@@ -48,10 +48,10 @@ test("general PDF prints the same totals as the preview model", async () => {
   assert.match(text, /Relatório geral de safra/);
   assert.ok(text.includes(formatTons(report.totals.totalNetWeight)), "total de cana do PDF difere da prévia");
   assert.equal(formatTons(report.totals.totalNetWeight), "379,500");
-  assert.match(text, /TCH efetivo \(t\/ha\)/);
-  assert.doesNotMatch(text, /TCH efetivo parcial/);
+  assert.match(text, /TCH talhões encerrados \(t\/ha\)/);
+  assert.doesNotMatch(text, /TCH talhões encerrados, parcial/);
   assert.match(text, /Área cadastrada \(ha\)/);
-  assert.match(text, /Área colhida comprovada \(ha\)/);
+  assert.match(text, /Área dos talhões encerrados \(ha\)/);
   assert.match(text, /Entregas por dia/);
 });
 
@@ -61,26 +61,26 @@ test("partial evidence is labeled as partial with its basis", async () => {
   const report = buildCaneReport(rows, { type: "DETAILED" }, { generatedAt });
   const { text } = await pdfText(await renderCaneReportPdf(report));
 
-  assert.match(text, /TCH efetivo parcial \(t\/ha\)/);
+  assert.match(text, /TCH talhões encerrados, parcial \(t\/ha\)/);
   assert.match(text, /1 de 4 talhões/);
-  assert.match(text, /TCH efetivo parcial: calculado só com 1 de 4 talhões/);
+  assert.match(text, /TCH talhões encerrados parcial: calculado só com 1 de 4 talhões/);
   assert.match(text, /OS 90007 encerrada fora do recorte/);
   assert.doesNotMatch(text, /\.\.\./, "nenhum texto de tabela pode ser truncado");
   assert.match(text, /Situação da colheita/);
   assert.match(text, /OS 90007 encerrada/);
   assert.match(text, /Sem OS encerrada/);
   assert.match(text, /Área cad\. \(ha\)/);
-  assert.match(text, /Área comprov\. \(ha\)/);
-  assert.doesNotMatch(text, /Área colh\./);
+  assert.match(text, /Área encerr\. \(ha\)/);
+  assert.doesNotMatch(text, /Área colh|comprovad|efetivo/);
 });
 
-test("PDF prints N/D when no field has a proven harvest", async () => {
+test("PDF prints N/D when no field has a closed order in the report", async () => {
   const report = buildCaneReport(sourceRows(3, 99).slice(1), { type: "DETAILED" }, { generatedAt });
   const { text } = await pdfText(await renderCaneReportPdf(report));
 
-  assert.equal(report.totals.effectiveTch, null);
+  assert.equal(report.totals.closedFieldsTch, null);
   assert.match(text, /N\/D/);
-  assert.match(text, /TCH efetivo N\/D: nenhum dos 2 talhão\(ões\) tem colheita comprovada no recorte/);
+  assert.match(text, /TCH talhões encerrados N\/D: nenhum dos 2 talhão\(ões\) tem OS encerrada com todas as entregas no recorte/);
   assert.ok(text.includes(formatTons(report.totals.totalNetWeight)));
 });
 

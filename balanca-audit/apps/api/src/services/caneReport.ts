@@ -2,7 +2,8 @@ import type { CaneReportFilterInput, CaneReportType } from "@balanca/shared";
 import type { CaneReportSourceRow } from "../db.js";
 import { harvestFarmIdentity, harvestFieldIdentity, hasCompleteHarvestArea, tonsPerHectare } from "./harvestMetrics.js";
 
-// What the stored data proves about the harvest of a field inside the report:
+// What the stored records say about the harvest of a field inside the report (an order closure is the
+// system's record that harvest ended; the harvested area itself is not measured):
 // CLOSED_COMPLETE  closed harvest order lists the field and every entry linked to it is in the report;
 // CLOSED_CLIPPED   closed order, but part of its entries for the field falls outside the report filters;
 // OPEN             no closed order (active order or entries without order);
@@ -30,14 +31,14 @@ export type CaneReportTotals = {
   deliveryDays: number;
   firstDate: string | null;
   lastDate: string | null;
-  // Registered area of the fields with deliveries in the report: a cadastre fact, not proof of harvest.
+  // Registered area of the fields with deliveries in the report: a cadastre fact, not a harvest record.
   registeredAreaHa: number;
   // Registered area of CLOSED_COMPLETE fields only.
-  provenAreaHa: number;
-  provenFieldCount: number;
-  provenNetWeight: number;
-  // Cane of proven fields ÷ their area. Null when no field is proven.
-  effectiveTch: number | null;
+  closedAreaHa: number;
+  closedFieldCount: number;
+  closedNetWeight: number;
+  // Cane of CLOSED_COMPLETE fields ÷ their registered area. Null when there is none.
+  closedFieldsTch: number | null;
   evidenceCounts: Record<FieldHarvestEvidence, number>;
 };
 
@@ -51,10 +52,10 @@ export type CaneReportFarmRow = {
   totalNetWeight: number;
   shareOfTotal: number;
   registeredAreaHa: number;
-  provenAreaHa: number;
-  provenFieldCount: number;
-  provenNetWeight: number;
-  effectiveTch: number | null;
+  closedAreaHa: number;
+  closedFieldCount: number;
+  closedNetWeight: number;
+  closedFieldsTch: number | null;
   firstDate: string | null;
   lastDate: string | null;
 };
@@ -75,7 +76,7 @@ export type CaneReportFieldRow = {
   evidenceLabel: string;
   closedOrderNumber: string | null;
   closedOrderEndDate: string | null;
-  effectiveTch: number | null;
+  closedFieldsTch: number | null;
   deliveryDays: number;
   firstDate: string | null;
   lastDate: string | null;
@@ -236,23 +237,23 @@ export function buildCaneReport(
       totalNetWeight: 0,
       shareOfTotal: 0,
       registeredAreaHa: 0,
-      provenAreaHa: 0,
-      provenFieldCount: 0,
-      provenNetWeight: 0,
-      effectiveTch: null,
+      closedAreaHa: 0,
+      closedFieldCount: 0,
+      closedNetWeight: 0,
+      closedFieldsTch: null,
       firstDate: null,
       lastDate: null
     };
-    const proven = field.evidence === "CLOSED_COMPLETE";
+    const closed = field.evidence === "CLOSED_COMPLETE";
 
     farm.fieldCount += 1;
     farm.entryCount += field.entryCount;
     farm.divergentCount += field.divergentCount;
     farm.totalNetWeight += field.totalNetWeight;
     farm.registeredAreaHa += field.registeredAreaHa ?? 0;
-    farm.provenAreaHa += proven ? field.registeredAreaHa! : 0;
-    farm.provenFieldCount += proven ? 1 : 0;
-    farm.provenNetWeight += proven ? field.totalNetWeight : 0;
+    farm.closedAreaHa += closed ? field.registeredAreaHa! : 0;
+    farm.closedFieldCount += closed ? 1 : 0;
+    farm.closedNetWeight += closed ? field.totalNetWeight : 0;
     farm.firstDate = earliest(farm.firstDate, field.firstDate);
     farm.lastDate = latest(farm.lastDate, field.lastDate);
     farms.set(field.farmKey, farm);
@@ -261,14 +262,14 @@ export function buildCaneReport(
   const farmRows = [...farms.values()].map((farm) => ({
     ...farm,
     shareOfTotal: totalNetWeight > 0 ? (farm.totalNetWeight / totalNetWeight) * 100 : 0,
-    effectiveTch: tonsPerHectare(farm.provenNetWeight, farm.provenAreaHa)
+    closedFieldsTch: tonsPerHectare(farm.closedNetWeight, farm.closedAreaHa)
   }));
   const entryCount = sum(fieldRows, (field) => field.entryCount);
   const dayRows = [...days.values()]
     .sort((left, right) => left.date.localeCompare(right.date))
     .map(({ fieldKeys, ...day }) => ({ ...day, fieldCount: fieldKeys.size }));
-  const provenAreaHa = sum(farmRows, (farm) => farm.provenAreaHa);
-  const provenNetWeight = sum(farmRows, (farm) => farm.provenNetWeight);
+  const closedAreaHa = sum(farmRows, (farm) => farm.closedAreaHa);
+  const closedNetWeight = sum(farmRows, (farm) => farm.closedNetWeight);
   const evidenceCounts: Record<FieldHarvestEvidence, number> = {
     CLOSED_COMPLETE: 0,
     CLOSED_CLIPPED: 0,
@@ -291,10 +292,10 @@ export function buildCaneReport(
     firstDate: dayRows[0]?.date ?? null,
     lastDate: dayRows.at(-1)?.date ?? null,
     registeredAreaHa: sum(farmRows, (farm) => farm.registeredAreaHa),
-    provenAreaHa,
-    provenFieldCount: evidenceCounts.CLOSED_COMPLETE,
-    provenNetWeight,
-    effectiveTch: tonsPerHectare(provenNetWeight, provenAreaHa),
+    closedAreaHa,
+    closedFieldCount: evidenceCounts.CLOSED_COMPLETE,
+    closedNetWeight,
+    closedFieldsTch: tonsPerHectare(closedNetWeight, closedAreaHa),
     evidenceCounts
   };
   const type = filters.type ?? "GENERAL";
@@ -347,7 +348,7 @@ function toFieldRow(field: FieldAccumulator): CaneReportFieldRow {
     evidenceLabel: evidenceLabel(field, evidence, closedShare),
     closedOrderNumber: closedShare?.orderNumber ?? null,
     closedOrderEndDate: closedShare?.closedOrderEndDate ?? null,
-    effectiveTch: evidence === "CLOSED_COMPLETE" ? tonsPerHectare(field.totalNetWeight, field.areaHa!) : null,
+    closedFieldsTch: evidence === "CLOSED_COMPLETE" ? tonsPerHectare(field.totalNetWeight, field.areaHa!) : null,
     deliveryDays: field.dates.size,
     firstDate: field.firstDate,
     lastDate: field.lastDate
@@ -378,20 +379,21 @@ function reportNotes(totals: CaneReportTotals) {
   const notes = [
     `Entregas registradas de ${formatReportDate(totals.firstDate)} a ${formatReportDate(totals.lastDate)}. ` +
       "Data de referência: data da entrada (sem data, início do período do lote).",
-    "Área cadastrada: área do cadastro dos talhões com entregas no recorte; não comprova colheita. " +
-      "Área colhida comprovada: talhões cuja OS está encerrada e cujas entregas vinculadas a ela estão todas no recorte. " +
-      "TCH efetivo = cana desses talhões ÷ essa área."
+    "Área cadastrada: área do cadastro dos talhões com entregas no recorte. " +
+      "Talhões encerrados: talhões cuja OS foi encerrada e cujas entregas vinculadas a ela estão todas no recorte. " +
+      "O encerramento da OS é o registro de fim da colheita; a área efetivamente colhida não é medida, " +
+      "por isso usa-se a área cadastrada, como no Rateio de OS. TCH talhões encerrados = cana desses talhões ÷ essa área."
   ];
 
-  if (totals.provenFieldCount === 0) {
+  if (totals.closedFieldCount === 0) {
     notes.push(
-      `TCH efetivo N/D: nenhum dos ${totals.fieldCount} talhão(ões) tem colheita comprovada no recorte` +
+      `TCH talhões encerrados N/D: nenhum dos ${totals.fieldCount} talhão(ões) tem OS encerrada com todas as entregas no recorte` +
         (others.length ? ` (${others.join("; ")}).` : ".")
     );
-  } else if (totals.provenFieldCount < totals.fieldCount) {
+  } else if (totals.closedFieldCount < totals.fieldCount) {
     notes.push(
-      `TCH efetivo parcial: calculado só com ${totals.provenFieldCount} de ${totals.fieldCount} talhões ` +
-        `(${formatTonsText(totals.provenNetWeight)} t de ${formatTonsText(totals.totalNetWeight)} t). ` +
+      `TCH talhões encerrados parcial: calculado só com ${totals.closedFieldCount} de ${totals.fieldCount} talhões ` +
+        `(${formatTonsText(totals.closedNetWeight)} t de ${formatTonsText(totals.totalNetWeight)} t). ` +
         `Não representa a produtividade de todo o recorte. Demais talhões: ${others.join("; ")}.`
     );
   }
