@@ -4,7 +4,6 @@ import path from "node:path";
 import { execFile } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { promisify } from "node:util";
-import { parse } from "csv-parse/sync";
 import { PDFDocument, rgb } from "pdf-lib";
 import { readSheet } from "read-excel-file/node";
 import type { EntryStatus, ImportMappingInput, ImportOptionsInput } from "@balanca/shared";
@@ -39,6 +38,8 @@ import {
   extractCanePdfAssistCandidates,
   type GeminiCanePdfExtraction
 } from "./canePdfAssist.js";
+import { CsvTableError, decodeCsvBuffer, parseCsvTable } from "./csvTable.js";
+import { detectMapping } from "./importColumnMapping.js";
 import { isDuplicateImportFileHashError } from "./importDeduplication.js";
 import { summarizeUniqueHarvestAreaByDate } from "./harvestMetrics.js";
 
@@ -163,17 +164,6 @@ type ImportPreviewSummary = {
     areaAlq: number;
   }>;
   reconciliation?: CaneSummaryReconciliation;
-};
-
-const columnAliases: Record<keyof ImportMappingInput, string[]> = {
-  ticketNumber: ["nota", "ticket", "romaneio", "numero", "número", "nf", "nfe"],
-  entryDate: ["data", "entrada", "data entrada", "dt entrada"],
-  farm: ["fazenda", "propriedade", "fornecedor", "origem"],
-  field: ["talhao", "talhão", "quadra", "gleba"],
-  order: ["os", "o.s", "ordem", "ordem servico", "ordem serviço", "ordem de servico", "ordem de serviço", "colheita"],
-  vehiclePlate: ["placa", "caminhao", "caminhão", "veiculo", "veículo"],
-  grossWeight: ["peso bruto", "bruto", "pb"],
-  netWeight: ["peso liquido", "peso líquido", "liquido", "líquido", "pl"]
 };
 
 const previewRowsLimit = 200;
@@ -388,12 +378,16 @@ async function readExcelTable(filePath: string, extension: string) {
 }
 
 async function readCsvTable(filePath: string) {
-  const content = await fs.readFile(filePath, "utf8");
-  return parse(content, {
-    bom: true,
-    relaxColumnCount: true,
-    skip_empty_lines: true
-  }) as unknown[][];
+  const content = decodeCsvBuffer(await fs.readFile(filePath));
+
+  try {
+    return parseCsvTable(content) as unknown[][];
+  } catch (error) {
+    if (error instanceof CsvTableError) {
+      throw badRequest(error.message);
+    }
+    throw error;
+  }
 }
 
 async function readCaneSummaryPdfRows(filePath: string, options: ImportOptionsInput) {
@@ -1219,25 +1213,6 @@ function formatStoredDateOnly(value: string) {
   }
 
   return `${match[3]}/${match[2]}/${match[1]}`;
-}
-
-function detectMapping(columns: string[], customMapping?: ImportMappingInput): ImportMappingInput {
-  const mapping: ImportMappingInput = {};
-
-  for (const key of Object.keys(columnAliases) as Array<keyof ImportMappingInput>) {
-    mapping[key] = customMapping?.[key] || findColumn(columns, columnAliases[key]);
-  }
-
-  return mapping;
-}
-
-function findColumn(columns: string[], aliases: string[]) {
-  const normalizedAliases = aliases.map(normalizeText);
-
-  return columns.find((column) => {
-    const normalizedColumn = normalizeText(column);
-    return normalizedAliases.some((alias) => normalizedColumn.includes(alias));
-  });
 }
 
 export function normalizeRow(row: RawRow, mapping: ImportMappingInput): NormalizedEntry {
