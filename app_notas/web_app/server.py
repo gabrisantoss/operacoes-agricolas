@@ -1310,31 +1310,19 @@ class AppNotasWebHandler(SimpleHTTPRequestHandler):
 
     def handle_historico(self, params: dict[str, list[str]]) -> None:
         reference = date_column(params.get("date_reference", ["data_colheita"])[0])
-        db = get_db()
         start = params.get("start", [""])[0] or None
         end = params.get("end", [""])[0] or None
-        q = (params.get("q", [""])[0] or "").strip()
-        field = (params.get("field", ["todos"])[0] or "todos").strip()
-        limit = parse_int_query(params, "limit", 1000, minimum=1, maximum=5000)
-        offset = parse_int_query(params, "offset", 0, minimum=0)
-        use_period = bool(start and end)
-
-        if field == "nota" and q:
-            rows = db.buscar_notas_historico(start if use_period else None, end if use_period else None, numero_prefixo=q, date_reference=reference)
-        else:
-            rows = db.buscar_notas_historico(start if use_period else None, end if use_period else None, date_reference=reference)
-            if q:
-                columns = HISTORICO_FIELD_MAP.get(field, HISTORICO_HEADERS)
-                q_lc = q.lower()
-                rows = [
-                    row
-                    for row in rows
-                    if any(q_lc in str(row[col] or "").lower() for col in columns)
-                ]
-
-        total = len(rows)
-        items = [row_dict(row) for row in paginate_items(rows, limit, offset)]
-        self.send_json({"ok": True, "items": items, "total": total, "date_reference": reference, "limit": limit, "offset": offset})
+        result = get_db().buscar_historico_paginado(
+            start, end, date_reference=reference,
+            q=(params.get("q", [""])[0] or "").strip(),
+            campo=(params.get("field", ["todos"])[0] or "todos").strip(),
+            origem=(params.get("origem", [""])[0] or "").strip(),
+            destino=(params.get("destino", [""])[0] or "").strip(),
+            variedade=(params.get("variedade", [""])[0] or "").strip(),
+            limit=parse_int_query(params, "limit", 50, minimum=1, maximum=5000),
+            offset=parse_int_query(params, "offset", 0, minimum=0),
+        )
+        self.send_json({"ok": True, **result, "items": [row_dict(row) for row in result["items"]], "date_reference": reference})
 
     def handle_dashboard(self, params: dict[str, list[str]]) -> None:
         reference = date_column(params.get("date_reference", ["data_colheita"])[0])

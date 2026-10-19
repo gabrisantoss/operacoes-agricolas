@@ -1240,6 +1240,74 @@ class DB:
         sql += " ORDER BY numero DESC"
         return self._fetchall(sql, params)
 
+    def buscar_historico_paginado(
+        self, data_inicio=None, data_fim=None, *, q="", campo="todos",
+        origem="", destino="", variedade="", date_reference="data_colheita",
+        limit=50, offset=0,
+    ) -> dict:
+        """Filter/count in SQL and fetch only the requested page of notes."""
+        reference = date_column(date_reference)
+        limit = max(1, min(int(limit), 5000))
+        offset = max(0, int(offset))
+        columns = [column for column in NOTA_FIELDS if column != "variedade_id"]
+        search_columns = {
+            "nota": ["numero"], "motorista": ["motorista_nome", "motorista_cod"],
+            "operador": ["operador_nome", "operador_cod"],
+            "origem": ["faz_muda_nome", "faz_muda_cod"],
+            "destino": ["faz_plantio_nome", "faz_plantio_cod"],
+            "variedade": ["variedade_nome"],
+        }
+        postgres = DB_ENGINE in {"postgres", "postgresql"}
+        lower = "LOWER" if postgres else "historico_lower"
+        # The demo cluster uses locale C; explicitly preserve Unicode case matching.
+        collation = ' COLLATE "pg_c_utf8"' if postgres else ""
+        filters, params = [], []
+
+        def contains(value, fields):
+            # LIKE wildcards are literal here, as in the previous Python substring search.
+            pattern = "%" + value.lower().replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%"
+            filters.append("(" + " OR ".join(
+                f"{lower}(COALESCE(CAST({column} AS TEXT), ''){collation}) LIKE ? ESCAPE '!'"
+                for column in fields
+            ) + ")")
+            params.extend([pattern] * len(fields))
+
+        if data_inicio and data_fim:
+            filters.append(f"{reference} BETWEEN ? AND ?")
+            params.extend((data_inicio, data_fim))
+        q = q.strip()
+        if q and campo == "nota":
+            if not q.isdigit():
+                filters.append("1 = 0")
+            else:
+                ranges = []
+                for extra in range(max(0, 9 - len(q)) + 1):
+                    factor = 10 ** extra
+                    first = int(q) * factor
+                    ranges.append("numero BETWEEN ? AND ?")
+                    params.extend((first, first + factor - 1))
+                filters.append("(" + " OR ".join(ranges) + ")")
+        elif q:
+            contains(q, search_columns.get(campo, columns))
+        for value, fields in (
+            (origem, search_columns["origem"]),
+            (destino, search_columns["destino"]),
+            (variedade, search_columns["variedade"]),
+        ):
+            if value.strip():
+                contains(value.strip(), fields)
+        where = " WHERE " + " AND ".join(filters) if filters else ""
+        with self._lock:
+            if lower == "historico_lower":
+                self.conn.create_function(lower, 1, lambda value: str(value or "").lower(), deterministic=True)
+            total = int(self._fetchone("SELECT COUNT(*) AS total FROM notas" + where, params)["total"])
+            offset = min(offset, ((total - 1) // limit) * limit) if total else 0
+            rows = self._fetchall(
+                "SELECT " + ", ".join(columns) + " FROM notas" + where
+                + " ORDER BY numero DESC LIMIT ? OFFSET ?", [*params, limit, offset],
+            )
+        return {"items": rows, "total": total, "limit": limit, "offset": offset}
+
     def excluir_nota(self, numero) -> None:
         self._execute("DELETE FROM notas WHERE numero = ?", (numero,), commit=True)
 

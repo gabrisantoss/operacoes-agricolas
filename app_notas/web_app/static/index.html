@@ -121,6 +121,15 @@
           <option value="destino">Destino</option>
           <option value="variedade">Variedade</option>
         </select>
+        <label>Fazenda de origem
+          <input id="historyOrigin" placeholder="Parte do nome ou codigo">
+        </label>
+        <label>Fazenda de destino
+          <input id="historyDestination" placeholder="Parte do nome ou codigo">
+        </label>
+        <label>Variedade
+          <input id="historyVariety" placeholder="Parte do nome da variedade">
+        </label>
         <label>Data de referencia
           <select id="historyDateReference">
             <option value="data_colheita">Data de colheita</option>
@@ -153,6 +162,11 @@
           </thead>
           <tbody id="historyBody"></tbody>
         </table>
+      </div>
+      <div class="toolbar history-pagination" aria-label="Paginacao do historico">
+        <button id="historyPrev" class="secondary" type="button" disabled>Anterior</button>
+        <span id="historyPage" role="status" aria-live="polite">Pagina 1 de 1 · 0 registros</span>
+        <button id="historyNext" class="secondary" type="button" disabled>Proxima</button>
       </div>
     </section>
 

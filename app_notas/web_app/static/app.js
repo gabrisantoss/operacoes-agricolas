@@ -8,6 +8,9 @@ function initialActiveTab() {
 
 const state = {
   currentHistoryUsePeriod: false,
+  historyOffset: 0,
+  historyTotal: 0,
+  historyPageSize: 50,
   lastSubmitPayload: null,
   reportPeriodInitialized: false,
   reportPeriodTouched: false,
@@ -442,11 +445,15 @@ async function showReferenceAudit(numero) {
   }
 }
 
-function historyUrl(usePeriod) {
+function historyUrl(usePeriod, offset = state.historyOffset) {
   const params = new URLSearchParams();
   params.set("q", $("#historySearch").value);
   params.set("field", $("#historyField").value);
-  params.set("limit", "1000");
+  params.set("limit", String(state.historyPageSize));
+  params.set("offset", String(offset));
+  params.set("origem", $("#historyOrigin").value);
+  params.set("destino", $("#historyDestination").value);
+  params.set("variedade", $("#historyVariety").value);
   params.set("date_reference", $("#historyDateReference").value);
   if (usePeriod) {
     params.set("start", $("#historyStart").value);
@@ -455,16 +462,31 @@ function historyUrl(usePeriod) {
   return `/api/historico?${params.toString()}`;
 }
 
-async function loadHistory(usePeriod = false) {
+function updateHistoryPagination() {
+  const page = Math.floor(state.historyOffset / state.historyPageSize) + 1;
+  const pages = Math.max(1, Math.ceil(state.historyTotal / state.historyPageSize));
+  const first = state.historyTotal ? state.historyOffset + 1 : 0;
+  const last = Math.min(state.historyOffset + state.historyPageSize, state.historyTotal);
+  $("#historyPage").textContent = `Pagina ${page} de ${pages} · ${first}–${last} de ${state.historyTotal} registros`;
+  $("#historyPrev").disabled = state.historyOffset === 0;
+  $("#historyNext").disabled = state.historyOffset + state.historyPageSize >= state.historyTotal;
+}
+
+async function loadHistory(usePeriod = false, offset = 0) {
+  const nextOffset = Math.max(0, offset);
+  $("#historyPrev").disabled = true;
+  $("#historyNext").disabled = true;
   state.currentHistoryUsePeriod = usePeriod;
   state.historyController?.abort();
   const controller = new AbortController();
   state.historyController = controller;
   let data;
   try {
-    data = await api(historyUrl(usePeriod), { signal: controller.signal });
+    data = await api(historyUrl(usePeriod, nextOffset), { signal: controller.signal });
+    if (controller.signal.aborted) return;
   } catch (error) {
     if (isAbortError(error)) return;
+    updateHistoryPagination();
     toast(error.message);
     return;
   } finally {
@@ -472,6 +494,10 @@ async function loadHistory(usePeriod = false) {
   }
   state.loadedTabs.add("historico");
   state.dirtyTabs.delete("historico");
+  state.historyOffset = data.offset;
+  state.historyTotal = data.total;
+  state.historyPageSize = data.limit;
+  updateHistoryPagination();
   $("#historyCount").textContent = `${data.total} registro${data.total === 1 ? "" : "s"}`;
   const rows = data.items.map((row) => `
     <tr>
@@ -697,6 +723,14 @@ function bindEvents() {
   $("#duplicateDialog").addEventListener("close", () => {
     const value = $("#duplicateDialog").returnValue;
     if (value === "duplicate") submitNote(value);
+  });
+  $("#historyPrev").addEventListener("click", () => loadHistory(state.currentHistoryUsePeriod, state.historyOffset - state.historyPageSize));
+  $("#historyNext").addEventListener("click", () => loadHistory(state.currentHistoryUsePeriod, state.historyOffset + state.historyPageSize));
+  ["#historyOrigin", "#historyDestination", "#historyVariety"].forEach((selector) => {
+    $(selector).addEventListener("input", debounce(() => loadHistory(state.currentHistoryUsePeriod), 300));
+  });
+  ["#historyStart", "#historyEnd"].forEach((selector) => {
+    $(selector).addEventListener("change", () => loadHistory(true));
   });
   $("#historyFilter").addEventListener("click", () => loadHistory(true));
   $("#historyAll").addEventListener("click", () => loadHistory(false));

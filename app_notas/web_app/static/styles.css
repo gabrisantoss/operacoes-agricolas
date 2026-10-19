@@ -718,3 +718,14 @@ dialog::backdrop {
 }
 
 .portfolio-notice{background:#123d30;color:#fff;padding:7px 16px;text-align:center;font:12px/1.4 system-ui,sans-serif}
+
+#historyPrev:disabled, #historyNext:disabled {
+  cursor: default;
+}
+
+.history-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
