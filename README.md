@@ -14,7 +14,7 @@ O sistema conecta o trabalho administrativo ao acompanhamento da operação. Um 
 
 | Módulo | O que é possível explorar |
 | --- | --- |
-| Colheita e Balança | Fazendas e talhões, ordens de serviço, liberações e encerramentos, importação de pesagens, divergências, rateio, frota e fechamento de safra. |
+| Colheita e Balança | Fazendas e talhões, ordens de serviço, liberações e encerramentos, importação de pesagens (CSV/XLSX/PDF), divergências, rateio, frota, fechamento de safra, central de relatórios, importação gerencial de OS via Excel e alertas de sobreposição de PDFs. |
 | Notas e Transporte | Lançamentos, proteção do histórico, cadastros, integração com colaboradores e Balança, rankings e relatórios PDF/Excel. |
 | Colaboradores | Cadastro e consulta, escala, acompanhamento de CNH, pendências documentais e relatórios. |
 | Análises Operacionais | Apontamentos, paradas, motivos, eficiência por turno e frente, colheita e exportações. |
@@ -33,11 +33,21 @@ O primeiro preparo gera:
 - 32 colaboradores fictícios, com diferentes situações de CNH;
 - 84 notas de transporte;
 - 112 apontamentos de parada e 112 registros de colheita;
-- uma base fictícia de frotas e um CSV de exemplo para importação.
+- uma base fictícia de frotas e um CSV de exemplo para importação;
+- três planilhas demonstrativas de OS e sete PDFs sintéticos de resumo de cana para os cenários de importação.
 
 As datas são relativas ao primeiro preparo. Os indicadores são calculados a partir desse cenário: não são resultados de negócio atribuídos a clientes.
 
 ![Fechamento de safra com dados fictícios](docs/screenshots/safra.png)
+
+## Destaques da Colheita e Balança
+
+- **Importação de pesagens:** CSV com separador `;` ou `,` detectado automaticamente, mapeamento de colunas conferido na prévia e controle por hash contra reimportação.
+- **Central de relatórios de safra:** relatório geral e detalhado por fazenda, talhão e período, com prévia e PDF gerados pelo mesmo cálculo. A tela distingue área cadastrada de área dos talhões com OS encerrada, e o TCH aparece como N/D ou "parcial" quando os dados não comprovam a área.
+- **Importação gerencial de OS via Excel:** planilha exportada do sistema corporativo, com prévia, divergências não aplicadas (setor em outra OS ativa, OS encerrada, setor ausente), detecção de reimportação, histórico e relatório CSV. Nada é enviado de volta ao sistema corporativo ([detalhes](docs/IMPORTACAO_OS.md)).
+- **Importação manual de PDFs:** arquivo idêntico bloqueado; períodos sobrepostos ou conteúdo repetido com os mesmos talhões exigem revisão explícita, e períodos coincidentes com outras fazendas são aceitos ([detalhes](docs/IMPORTACAO_PDF.md)).
+
+![Central de relatórios de safra](docs/screenshots/relatorios.png)
 
 ## Executar localmente
 
@@ -50,6 +60,8 @@ py -3.12 demo.py setup
 py -3.12 demo.py credentials
 py -3.12 demo.py start --open
 ```
+
+A leitura de PDFs usa o `pdftotext` do **Poppler**. Se outro `pdftotext` vier antes no PATH, defina `POPPLER_BIN_DIR` antes do `start`; a importação explica o problema caso o leitor não sirva.
 
 O portal abre em **http://127.0.0.1:8890**. O usuário é `gestor@example.invalid`; a senha é gerada localmente e exibida pelo comando `credentials`. A instalação inicial precisa de internet para baixar dependências. O uso demonstrativo normal é local.
 
@@ -73,6 +85,8 @@ Nenhum serviço do Windows, tarefa agendada ou regra de firewall é instalado. P
 **Caminhos longos no Windows:** clone o repositório em uma pasta curta, como `C:\Users\<usuario>\Documents\operacoes-agricolas`. Sem o suporte a caminhos longos habilitado, o Windows limita caminhos a 260 caracteres. Em pastas muito profundas, os arquivos temporários criados em `.demo\temp` por `demo.py test` ultrapassam esse limite, e as suítes de backup de Notas e Colaboradores falham com `unable to open database file` ou `WinError 3`. A mesma revisão passa integralmente em um caminho curto. A demonstração não altera essa configuração do sistema.
 
 ## Roteiro para conhecer a aplicação
+
+Para uma apresentação guiada de cerca de 5 minutos, siga o [roteiro de demonstração](docs/ROTEIRO_DEMONSTRACAO.md).
 
 1. Entre no portal e abra **Colheita e Balança → Safra**. Compare propriedades, talhões e volume conferido.
 2. Explore **Ordens de Serviço** e os vínculos entre fazenda, talhões e frentes. Em **Importar OS**, importe as planilhas demonstrativas que o `setup` gera em `demo-data/` (exportação do sistema oficial; nada é enviado de volta) e confira a prévia, as divergências e o histórico ([detalhes](docs/IMPORTACAO_OS.md)).

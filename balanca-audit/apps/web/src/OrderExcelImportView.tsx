@@ -156,7 +156,7 @@ export function OrderExcelImportView({
           <div>
             <h2>Importar OS exportadas do sistema corporativo</h2>
             <span className="muted">
-              Fluxo: sistema corporativo (sistema oficial) → planilha Excel exportada → prévia → registro no Balança para gestão e relatórios.
+              Fluxo: sistema corporativo (oficial) → planilha Excel exportada → prévia → registro no Balança para gestão e relatórios.
               Nada é enviado ao sistema corporativo. Divergências são apenas relatadas; nenhuma OS encerrada ou setor existente é alterado
               automaticamente.
             </span>

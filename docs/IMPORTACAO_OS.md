@@ -1,9 +1,9 @@
 # Importação gerencial de OS via Excel
 
-O sistema oficial da operação (sistema corporativo) continua sendo a fonte de todos os processos. A Balança recebe uma cópia das OS para organização, acompanhamento, consultas e relatórios:
+O sistema corporativo continua sendo a fonte de todos os processos. A Balança recebe uma cópia das OS para organização, acompanhamento, consultas e relatórios:
 
 ```
-sistema corporativo (oficial) → planilha Excel exportada → prévia na Balança → registro gerencial → consultas e relatórios
+Sistema corporativo (oficial) → planilha Excel exportada → prévia na Balança → registro gerencial → consultas e relatórios
 ```
 
 A Balança **não envia nada ao sistema corporativo** e não altera automaticamente registros já existentes além do que a planilha comprova: ela cria OS novas e acrescenta setores a OS ativas. Nada é removido, encerrado ou reaberto pela importação.
