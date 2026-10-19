@@ -67,7 +67,7 @@ type NormalizedEntry = {
 };
 
 type DetectionResult = {
-  sourceType: "SPREADSHEET" | "RELPESAG_PDF";
+  sourceType: "SPREADSHEET" | "CANE_SUMMARY_PDF";
   columns: string[];
   mapping: ImportMappingInput;
   rows: PreviewEntry[];
@@ -285,7 +285,7 @@ export async function commitImport(
 // Identical file and same period stay blocked (existing rules); partial overlaps and coincident content
 // require an explicit review; overlaps with other fields are legitimate and only informed.
 function analyzeParsedPdfOverlap(parsed: ParsedRows, fileHash: string): PdfOverlapAnalysis | undefined {
-  if (parsed.sourceType !== "RELPESAG_PDF") {
+  if (parsed.sourceType !== "CANE_SUMMARY_PDF") {
     return undefined;
   }
 
@@ -342,7 +342,7 @@ function reviewedOverlapNotesByField(overlap: PdfOverlapAnalysis | undefined) {
 
 export async function highlightCaneSummaryPdfDivergences(filePath: string, fileName: string) {
   if (path.extname(fileName).toLowerCase() !== ".pdf") {
-    throw badRequest("Envie um PDF RELPESAG para marcar as divergencias.");
+    throw badRequest("Envie o PDF do relatorio padronizado de pesagem para marcar as divergencias.");
   }
 
   const [sourceBytes, text, bboxText] = await Promise.all([
@@ -353,7 +353,7 @@ export async function highlightCaneSummaryPdfDivergences(filePath: string, fileN
   const metadata = extractCaneSummaryMetadata(text);
   const rows = parseCaneSummaryPdfBboxRows(bboxText, metadata.periodStart ?? metadata.reportDate);
   assertExportRowLimit(rows.length);
-  const classificationContext = createClassificationContext("RELPESAG_PDF");
+  const classificationContext = createClassificationContext("CANE_SUMMARY_PDF");
   const divergentRows = rows.filter((item) => classifyCaneSummaryRow(item.row, classificationContext).status !== "OK");
   const pdf = await PDFDocument.load(sourceBytes);
 
@@ -445,7 +445,7 @@ async function readCaneSummaryPdfRows(filePath: string, options: ImportOptionsIn
   const parsed = await parseCaneSummaryPdfWithFallback(filePath, textVariants, bboxText);
 
   return {
-    sourceType: "RELPESAG_PDF" as const,
+    sourceType: "CANE_SUMMARY_PDF" as const,
     columns: ["Data", "Codigo Fazenda", "Fazenda", "Talhao", "Cana Entregue", "Viagens", "OS encontrada"],
     mapping: {
       ticketNumber: "ticketNumber",
@@ -529,7 +529,7 @@ async function parseCaneSummaryPdfWithFallback(filePath: string, textVariants: s
     return bestResult;
   }
 
-  throw localError ?? badRequest("Nao foi possivel ler o PDF RELPESAG.");
+  throw localError ?? badRequest("Nao foi possivel ler o PDF do relatorio padronizado de pesagem.");
 }
 
 async function extractPdfText(filePath: string) {
@@ -580,7 +580,7 @@ function parseCaneSummaryPdfTexts(
   const combinedText = textVariants.join("\n");
 
   if (!isCaneSummaryPdfText(combinedText)) {
-    throw badRequest("PDF nao reconhecido. Envie o relatorio RELPESAG - Resumo de Cana Entregue - Talhao.");
+    throw badRequest("PDF nao reconhecido. Envie o relatorio padronizado de pesagem (Resumo de Cana Entregue - Talhao).");
   }
 
   const metadata = extractCaneSummaryMetadata(combinedText);
@@ -620,7 +620,7 @@ function parseGeminiCaneSummaryExtraction(extraction: GeminiCanePdfExtraction, a
     }))
   );
   const metadata: ImportBatchMetadata = {
-    sourceType: "RELPESAG_PDF",
+    sourceType: "CANE_SUMMARY_PDF",
     reportDate,
     periodStart,
     periodEnd,
@@ -653,7 +653,7 @@ function extractCaneSummaryMetadata(text: string): ImportBatchMetadata {
   const normalizedText = normalizePdfTextForParsing(text);
 
   if (!isCaneSummaryPdfText(normalizedText)) {
-    throw badRequest("PDF nao reconhecido. Envie o relatorio RELPESAG - Resumo de Cana Entregue - Talhao.");
+    throw badRequest("PDF nao reconhecido. Envie o relatorio padronizado de pesagem (Resumo de Cana Entregue - Talhao).");
   }
 
   const reportDateMatch = /Data\s*:\s*(\d{1,2})\s*\/\s*(\d{1,2})\s*\/\s*(\d{2,4})/i.exec(normalizedText);
@@ -666,7 +666,7 @@ function extractCaneSummaryMetadata(text: string): ImportBatchMetadata {
   const periodEnd = parseImportDate(periodMatch?.[2]?.replace(/\s/g, ""));
 
   return {
-    sourceType: "RELPESAG_PDF",
+    sourceType: "CANE_SUMMARY_PDF",
     reportDate,
     periodStart,
     periodEnd,
@@ -678,7 +678,7 @@ function extractCaneSummaryMetadata(text: string): ImportBatchMetadata {
 
 function isCaneSummaryPdfText(text: string) {
   const normalized = normalizeText(repairCommonPdfMojibake(text));
-  return normalized.includes("resumo de cana entregue") && normalized.includes("talh") && normalized.includes("relpesag");
+  return normalized.includes("resumo de cana entregue") && normalized.includes("talh");
 }
 
 function normalizePdfTextForParsing(text: string) {
@@ -823,7 +823,7 @@ function shouldTryCaneSummaryOcr(textVariants: string[]) {
 }
 
 async function extractCaneSummaryPdfOcrText(filePath: string) {
-  const tempDir = path.join(os.tmpdir(), `agricola-relpesag-${randomUUID()}`);
+  const tempDir = path.join(os.tmpdir(), `agricola-pdf-pesagem-${randomUUID()}`);
 
   try {
     await fs.mkdir(tempDir, { recursive: true });
@@ -1068,7 +1068,7 @@ function throwCaneSummaryColumnError(message: string): never {
 function findCaneSummaryColumnBounds(groups: Array<{ words: PdfBboxWord[] }>, pageIndex: number): number[] {
   const labels = ["codigo", "fornecedor", "fundo agricola", "talhao", "km", "area", "cana entregue", "viagens"];
   const referenceAnchors = [26.1, 122.85, 273.6, 382.35, 415.35, 443.85, 478.35, 541.35];
-  // RELPESAG column borders measured from the fixed report grid, in PDF points.
+  // Standard weighing report column borders measured from the fixed report grid, in PDF points.
   const referenceBounds = [12, 62.1, 220.35, 379.35, 411.6, 433.35, 474.6, 536.1, 577.35];
 
   for (const group of groups) {
@@ -1085,7 +1085,7 @@ function findCaneSummaryColumnBounds(groups: Array<{ words: PdfBboxWord[] }>, pa
     return referenceBounds.map((value) => value * scale + translation);
   }
 
-  return throwCaneSummaryColumnError(`Pagina ${pageIndex + 1}: as oito colunas do RELPESAG nao foram reconhecidas com seguranca.`);
+  return throwCaneSummaryColumnError(`Pagina ${pageIndex + 1}: as oito colunas do relatorio nao foram reconhecidas com seguranca.`);
 }
 
 function buildBboxLineText(words: PdfBboxWord[]) {
@@ -1329,7 +1329,7 @@ export function unrollNormalizedRow(row: NormalizedEntry): NormalizedEntry[] {
 }
 
 function createClassificationContext(sourceType: DetectionResult["sourceType"]): ClassificationContext | undefined {
-  if (sourceType !== "RELPESAG_PDF") {
+  if (sourceType !== "CANE_SUMMARY_PDF") {
     return undefined;
   }
 
@@ -1579,7 +1579,7 @@ function summarizePreview(rows: PreviewEntry[], reconciliation?: CaneSummaryReco
 }
 
 function assertCaneSummaryReconciled(parsed: ParsedRows) {
-  if (parsed.sourceType !== "RELPESAG_PDF") {
+  if (parsed.sourceType !== "CANE_SUMMARY_PDF") {
     return;
   }
 
@@ -1628,7 +1628,7 @@ function classifyRow(
   sourceType: DetectionResult["sourceType"],
   context?: ClassificationContext
 ): ClassifiedEntry {
-  if (sourceType === "RELPESAG_PDF") {
+  if (sourceType === "CANE_SUMMARY_PDF") {
     return classifyCaneSummaryRow(row, context);
   }
 

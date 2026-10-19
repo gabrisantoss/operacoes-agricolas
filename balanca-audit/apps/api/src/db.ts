@@ -1680,7 +1680,7 @@ export function findPdfImportBatchByPeriod(periodStart: Date, periodEnd: Date) {
         period_end AS entry_date_to
       FROM import_batches
       WHERE
-        (source_type = 'RELPESAG_PDF' OR lower(file_name) LIKE '%.pdf')
+        (source_type = 'CANE_SUMMARY_PDF' OR lower(file_name) LIKE '%.pdf')
         AND COALESCE(period_start, report_date) = ?
         AND COALESCE(period_end, period_start, report_date) = ?
       ORDER BY imported_at DESC, id DESC
@@ -1710,7 +1710,7 @@ export function listImportedPdfBatchFields() {
       JOIN cane_entries ce ON ce.batch_id = b.id
       LEFT JOIN fields field ON field.id = ce.field_id
       LEFT JOIN farms farm ON farm.id = COALESCE(ce.farm_id, field.farm_id)
-      WHERE (b.source_type = 'RELPESAG_PDF' OR lower(b.file_name) LIKE '%.pdf')
+      WHERE (b.source_type = 'CANE_SUMMARY_PDF' OR lower(b.file_name) LIKE '%.pdf')
         AND COALESCE(b.period_start, b.report_date) IS NOT NULL
       GROUP BY 1, 2, 3, 4, 5, 6, 7, 8
       ORDER BY b.imported_at DESC, b.id
@@ -1799,7 +1799,7 @@ export function deletePdfImportBatchGroupByPeriod(from: string, to: string) {
         COALESCE(CAST(b.period_end AS TEXT), MAX(substr(CAST(ce.entry_date AS TEXT), 1, 10))) AS entry_date_to
       FROM import_batches b
       LEFT JOIN cane_entries ce ON ce.batch_id = b.id
-      WHERE b.source_type = 'RELPESAG_PDF' OR lower(b.file_name) LIKE '%.pdf'
+      WHERE b.source_type = 'CANE_SUMMARY_PDF' OR lower(b.file_name) LIKE '%.pdf'
       GROUP BY b.id
       HAVING COALESCE(CAST(b.period_start AS TEXT), CAST(b.report_date AS TEXT)) = ?
          AND COALESCE(CAST(b.period_end AS TEXT), CAST(b.report_date AS TEXT), CAST(b.period_start AS TEXT)) = ?
@@ -1852,7 +1852,7 @@ export function deleteAllPdfImportBatches() {
         COALESCE(CAST(b.period_end AS TEXT), CAST(b.report_date AS TEXT), MAX(substr(CAST(ce.entry_date AS TEXT), 1, 10))) AS entry_date_to
       FROM import_batches b
       LEFT JOIN cane_entries ce ON ce.batch_id = b.id
-      WHERE b.source_type = 'RELPESAG_PDF' OR lower(b.file_name) LIKE '%.pdf'
+      WHERE b.source_type = 'CANE_SUMMARY_PDF' OR lower(b.file_name) LIKE '%.pdf'
       GROUP BY b.id
       ORDER BY b.imported_at DESC
       `

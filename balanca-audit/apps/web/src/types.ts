@@ -391,7 +391,7 @@ export type PdfOverlapAnalysis = {
 };
 
 export type PreviewImport = {
-  sourceType: "SPREADSHEET" | "RELPESAG_PDF";
+  sourceType: "SPREADSHEET" | "CANE_SUMMARY_PDF";
   fileHash: string;
   overlap?: PdfOverlapAnalysis;
   columns: string[];

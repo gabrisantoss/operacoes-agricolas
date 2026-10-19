@@ -20,7 +20,7 @@ Verificação local da branch consolidada, em clone limpo, com `demo.py setup` e
 
 | Verificação | Resultado |
 | --- | --- |
-| Instalação em cluster demonstrativo novo | Migrações 0001 a 0005 aplicadas; cenário fictício, planilhas de OS e PDFs sintéticos gerados |
+| Instalação em cluster demonstrativo novo | Migrações 0001 a 0006 aplicadas; cenário fictício, planilhas de OS e PDFs sintéticos gerados |
 | Testes Python | **143 aprovados** |
 | Testes da API TypeScript | **174 aprovados, 0 falhas, 0 ignorados**, com PostgreSQL real e PDFs sintéticos lidos pelo Poppler |
 | Interface | Importação CSV, central de relatórios, importação de OS e cenários de PDF percorridos com Playwright; capturas novas com dados fictícios |

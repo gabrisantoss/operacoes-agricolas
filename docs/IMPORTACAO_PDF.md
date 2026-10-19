@@ -1,6 +1,6 @@
 # Importação manual de PDFs: repetição e sobreposição
 
-Os relatórios RELPESAG ("Resumo de Cana Entregue - Talhão") chegam por e-mail e são inseridos manualmente. Antes de gravar, a prévia compara o PDF com os PDFs já importados e classifica a situação:
+Os relatórios padronizados de pesagem ("Resumo de Cana Entregue - Talhão"), exportados do sistema corporativo, chegam por e-mail e são inseridos manualmente. Antes de gravar, a prévia compara o PDF com os PDFs já importados e classifica a situação:
 
 | Situação | Como é identificada | Resultado |
 | --- | --- | --- |

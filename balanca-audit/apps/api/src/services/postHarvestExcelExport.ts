@@ -72,7 +72,7 @@ export function readPostHarvestExportData(limit?: number): PostHarvestExportData
           JOIN import_batches b ON b.id = ce.batch_id
           WHERE ce.field_id = f.id
             AND ce.farm_id = fa.id
-            AND (b.source_type = 'RELPESAG_PDF' OR lower(b.file_name) LIKE '%.pdf')
+            AND (b.source_type = 'CANE_SUMMARY_PDF' OR lower(b.file_name) LIKE '%.pdf')
             AND (
               ce.order_id = ho.id
               OR (

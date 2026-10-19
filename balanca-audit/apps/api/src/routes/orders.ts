@@ -959,7 +959,7 @@ function getClosedFarmHarvestMetrics(group: Pick<ClosedFarmReportRow, "farm" | "
           JOIN import_batches b ON b.id = ce.batch_id
           WHERE ce.farm_id = ?
             AND ce.field_id IN (${placeholders})
-            AND (b.source_type = 'RELPESAG_PDF' OR lower(b.file_name) LIKE '%.pdf')
+            AND (b.source_type = 'CANE_SUMMARY_PDF' OR lower(b.file_name) LIKE '%.pdf')
             AND ce.field_id IS NOT NULL
             AND (
               ce.order_id IN (${orderIdPlaceholders})

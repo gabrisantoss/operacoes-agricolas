@@ -5857,7 +5857,7 @@ function summarizePdfImportBatches(batches: ImportBatch[]) {
 }
 
 function isPdfReportBatch(batch: ImportBatch) {
-  return batch.sourceType === "RELPESAG_PDF" || /\.pdf$/i.test(batch.fileName);
+  return batch.sourceType === "CANE_SUMMARY_PDF" || /\.pdf$/i.test(batch.fileName);
 }
 
 function reportToFilters(report: AvailableReport): DashboardFilters {

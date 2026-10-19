@@ -254,7 +254,7 @@ test("orders repository facade updates, closes and deletes orders", () => {
 
 
 
-test("parseCaneSummaryPdfText reads RELPESAG cane summary rows", () => {
+test("parseCaneSummaryPdfText reads standard weighing report rows", () => {
   const text = `
 Resumo de Cana Entregue - Talhao                      Operacoes Agricolas S/A                                       Data: 28 / 08 / 2025   10 : 24
 PERIODO 27/08/2025 A 27/08/2025 - SAFRA 2025/2026                                                          RELPESAG        Pagina:   00001
@@ -296,7 +296,7 @@ PERIODO 19/06/2026 A 19/06/2026 - SAFRA 2026/2027                               
   assert.equal(parsed.rows[0].tripCount, 3);
 });
 
-test("parseCaneSummaryPdfText reads RELPESAG rows without space before field code", () => {
+test("parseCaneSummaryPdfText reads standard weighing report rows without space before field code", () => {
   const text = `
 Resumo de Cana Entregue - Talhao                      Operacoes Agricolas S/A                                       Data: 02 / 05 / 2026   09 : 03
 PERIODO 28/04/2026 A 1/05/2026 - SAFRA 2026/2027                                                          RELPESAG        Pagina:   00002
@@ -379,10 +379,10 @@ TOTAL GERAL 842,220 11
 test("findPdfImportBatchByPeriod detects only the same already imported PDF period", () => {
   const suffix = `periodo-duplicado-${process.pid}`;
   const batch = createImportBatch({
-    fileName: `RELPESAG-${suffix}.pdf`,
+    fileName: `resumo-pesagem-${suffix}.pdf`,
     rowCount: 1,
     metadata: {
-      sourceType: "RELPESAG_PDF",
+      sourceType: "CANE_SUMMARY_PDF",
       periodStart: new Date("2026-05-19T00:00:00.000Z"),
       periodEnd: new Date("2026-05-21T00:00:00.000Z")
     }

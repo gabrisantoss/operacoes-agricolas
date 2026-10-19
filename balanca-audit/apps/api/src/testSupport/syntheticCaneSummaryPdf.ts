@@ -1,6 +1,6 @@
 import PDFDocument from "pdfkit";
 
-// Synthetic "Resumo de Cana Entregue - Talhao" (RELPESAG) built on the column grid the importer reads.
+// Synthetic "Resumo de Cana Entregue - Talhao" standard weighing report built on the column grid the importer reads.
 // Every value is fictional; the footer marks the document as synthetic.
 export type SyntheticCaneSummaryRow = {
   supplierCode: string;

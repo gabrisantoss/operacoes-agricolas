@@ -1,4 +1,4 @@
-PDFs SINTETICOS no layout RELPESAG, com dados ficticios, gerados por demo.py setup
+PDFs SINTETICOS no layout do relatorio padronizado de pesagem, com dados ficticios, gerados por demo.py setup
 (scripts/seed_pdf_samples.mjs) para demonstrar a analise de sobreposicao da importacao de PDF.
 
 01: primeira importacao legitima.

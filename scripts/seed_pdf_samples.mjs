@@ -1,4 +1,4 @@
-// Synthetic RELPESAG PDFs for the overlap scenarios of the PDF import. All values are fictional and refer to the
+// Synthetic standard weighing report PDFs for the overlap scenarios of the PDF import. All values are fictional and refer to the
 // demonstration farms; August dates stay outside the fictional daily CSV window.
 import fs from "node:fs";
 import path from "node:path";

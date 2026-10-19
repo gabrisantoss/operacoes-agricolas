@@ -262,7 +262,7 @@ async function extractWithGemini(filePath: string) {
 }
 
 function buildGeminiPrompt() {
-  return `Leia o relatorio RELPESAG - Resumo de Cana Entregue - Talhao.
+  return `Leia o relatorio padronizado de pesagem "Resumo de Cana Entregue - Talhao".
 Retorne somente JSON com reportDate, periodStart, periodEnd, totalNetWeight, totalTrips e rows.
 Cada item de rows deve conter originCode, supplierCode, farm, field, netWeight e tripCount.
 Copie todas as linhas de talhao exatamente uma vez. Nao inclua totais e nao invente valores.
