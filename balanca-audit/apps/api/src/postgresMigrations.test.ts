@@ -15,7 +15,7 @@ import {
 test("versioned migration covers columns required by the current repositories", async () => {
   const migrations = await loadPostgresMigrations();
 
-  assert.deepEqual(migrations.map((migration) => migration.version), ["0001", "0002", "0003", "0004"]);
+  assert.deepEqual(migrations.map((migration) => migration.version), ["0001", "0002", "0003", "0004", "0005"]);
   assert.match(migrations[0].sql, /ALTER TABLE harvest_orders[\s\S]*ADD COLUMN IF NOT EXISTS origin text/i);
   assert.match(migrations[0].sql, /ALTER TABLE cane_entries[\s\S]*ADD COLUMN IF NOT EXISTS farm_code_raw text/i);
   assert.match(migrations[1].sql, /CREATE UNIQUE INDEX IF NOT EXISTS idx_import_batches_file_hash_unique/i);
@@ -25,6 +25,7 @@ test("versioned migration covers columns required by the current repositories", 
   assert.match(migrations[2].sql, /ADD COLUMN IF NOT EXISTS lease_expires_at/i);
   assert.match(migrations[3].sql, /CREATE TABLE IF NOT EXISTS order_import_batches/i);
   assert.match(migrations[3].sql, /idx_order_import_batches_file_hash/i);
+  assert.match(migrations[4].sql, /DROP INDEX IF EXISTS idx_import_batches_pdf_period_unique/i);
   assert.ok(migrations.every((migration) => /^[a-f0-9]{64}$/.test(migration.checksum)));
 });
 
@@ -55,7 +56,7 @@ test("read-only state validation rejects missing, pending, unknown and changed m
   };
 
   const result = assertPostgresMigrationState(validState);
-  assert.equal(result.currentVersion, "0004");
+  assert.equal(result.currentVersion, "0005");
   assert.equal(result.tableCount, expectedTables.length);
 
   assert.throws(
@@ -64,7 +65,7 @@ test("read-only state validation rejects missing, pending, unknown and changed m
   );
   assert.throws(
     () => assertPostgresMigrationState({ ...validState, appliedMigrations: [] }),
-    /pendentes: 0001, 0002, 0003, 0004/i
+    /pendentes: 0001, 0002, 0003, 0004, 0005/i
   );
   assert.throws(
     () =>
@@ -111,13 +112,13 @@ test(
       );
 
       const legacyResult = await runPostgresMigrations(client);
-      assert.deepEqual(legacyResult.applied, ["0001", "0002", "0003", "0004"]);
+      assert.deepEqual(legacyResult.applied, ["0001", "0002", "0003", "0004", "0005"]);
       await assertCurrentColumnsAndVersion(client, { expectExternalLegacyTable: true });
 
       await client.query("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
       try {
         const verification = await verifyPostgresMigrations(client);
-        assert.equal(verification.currentVersion, "0004");
+        assert.equal(verification.currentVersion, "0005");
         assert.ok(verification.tableCount > 0);
         await client.query("COMMIT");
       } catch (error) {
@@ -164,10 +165,10 @@ test(
       await client.query(`CREATE SCHEMA ${quoteIdentifier(freshSchema)}`);
       await client.query(`SET search_path TO ${quoteIdentifier(freshSchema)}`);
       const freshResult = await runPostgresMigrations(client);
-      assert.deepEqual(freshResult.applied, ["0001", "0002", "0003", "0004"]);
+      assert.deepEqual(freshResult.applied, ["0001", "0002", "0003", "0004", "0005"]);
       await assertCurrentColumnsAndVersion(client);
       const freshVerification = await verifyPostgresMigrations(client);
-      assert.equal(freshVerification.currentVersion, "0004");
+      assert.equal(freshVerification.currentVersion, "0005");
     } finally {
       await client.query("SET search_path TO public").catch(() => undefined);
       await client.query(`DROP SCHEMA IF EXISTS ${quoteIdentifier(legacySchema)} CASCADE`).catch(() => undefined);
@@ -339,7 +340,8 @@ async function assertCurrentColumnsAndVersion(
     { version: "0001" },
     { version: "0002" },
     { version: "0003" },
-    { version: "0004" }
+    { version: "0004" },
+    { version: "0005" }
   ]);
 
 

@@ -6,4 +6,5 @@ PDFs SINTETICOS no layout RELPESAG, com dados ficticios, gerados por demo.py set
 03: periodo parcialmente sobreposto ao 01 com os mesmos talhoes (revisao obrigatoria).
 04: periodo sobreposto com outra fazenda (informado; importacao legitima).
 05: mesmo conteudo do 01 com outro periodo (revisao obrigatoria).
-06: outro PDF para exatamente o mesmo periodo do 01 (bloqueado pela regra existente).
+06: mesmo periodo do 01 com talhao em comum (revisao obrigatoria).
+07: mesmo periodo do 01 para outra fazenda (informado; importacao legitima).

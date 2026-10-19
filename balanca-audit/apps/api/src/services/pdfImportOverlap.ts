@@ -20,7 +20,7 @@ export type ImportedPdfBatch = {
 
 export type PdfOverlapKind =
   | "IDENTICAL_FILE"
-  | "SAME_PERIOD"
+  | "SAME_PERIOD_SHARED_FIELDS"
   | "PARTIAL_PERIOD_OVERLAP"
   | "PERIOD_OVERLAP_OTHER_FIELDS"
   | "COINCIDENT_RECORDS";
@@ -128,14 +128,17 @@ export function analyzePdfImportOverlap(input: {
     const overlap = intersect(newPeriod, existingPeriod);
     const base = { batchId: batch.id, fileName: batch.fileName, importedAt: batch.importedAt, existingPeriod, overlapPeriod: overlap };
 
-    if (overlap && newPeriod.start === existingPeriod.start && newPeriod.end === existingPeriod.end) {
-      // Existing rule: one PDF per period; the previous group must be deleted before inserting another.
+    // A period alone is not proof of duplication: only shared farm/field content is.
+    if (overlap && shared.length > 0 && newPeriod.start === existingPeriod.start && newPeriod.end === existingPeriod.end) {
+      const identicalTotals = shared.filter((field) => field.sameTotals).length;
       alerts.push({
         ...base,
-        kind: "SAME_PERIOD",
-        severity: "BLOCKED",
+        kind: "SAME_PERIOD_SHARED_FIELDS",
+        severity: "REVIEW_REQUIRED",
         fields: shared,
-        message: `Ja existe PDF para o mesmo periodo ${describe(existingPeriod)} ("${batch.fileName}"). Exclua o grupo existente no Historico antes de inserir outro PDF desse periodo.`
+        message: `"${batch.fileName}" ja tem o mesmo periodo ${describe(existingPeriod)} e ${shared.length} talhao(oes) em comum` +
+          (identicalTotals > 0 ? `, ${identicalTotals} deles com a mesma cana e as mesmas viagens` : "") +
+          `. Se for o mesmo relatorio corrigido, exclua o lote anterior no Historico em vez de gravar os dois.`
       });
     } else if (overlap && shared.length > 0) {
       alerts.push({
@@ -151,7 +154,7 @@ export function analyzePdfImportOverlap(input: {
         kind: "PERIOD_OVERLAP_OTHER_FIELDS",
         severity: "INFO",
         fields: [],
-        message: `O periodo se sobrepoe a "${batch.fileName}" (${describe(existingPeriod)}), mas nenhum talhao coincide. Tratado como importacao legitima.`
+        message: `O periodo coincide com "${batch.fileName}" (${describe(existingPeriod)}), mas nenhuma fazenda/talhao se repete. Tratado como importacao legitima.`
       });
     } else {
       const identical = shared.filter((field) => field.sameTotals);

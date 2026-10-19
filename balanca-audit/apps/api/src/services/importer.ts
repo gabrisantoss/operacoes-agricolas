@@ -15,7 +15,6 @@ import {
   type ImportBatchMetadataInput,
   findActiveOrderForField,
   findImportBatchByFileHash,
-  findPdfImportBatchByPeriod,
   listImportedPdfBatchFields,
   findFarmByRaw,
   findFieldByFarmAndCode,
@@ -43,6 +42,8 @@ import { CsvTableError, decodeCsvBuffer, parseCsvTable } from "./csvTable.js";
 import { detectMapping } from "./importColumnMapping.js";
 import { isDuplicateImportFileHashError } from "./importDeduplication.js";
 import { analyzePdfImportOverlap, fieldKey, summarizePdfFields, type PdfOverlapAnalysis } from "./pdfImportOverlap.js";
+import { resolveExternalCommand } from "./externalCommands.js";
+import { pdfReaderGuidance } from "./pdfReaderGuidance.js";
 import { summarizeUniqueHarvestAreaByDate } from "./harvestMetrics.js";
 
 const execFileAsync = promisify(execFile);
@@ -435,6 +436,12 @@ async function readCaneSummaryPdfRows(filePath: string, options: ImportOptionsIn
     extractPdfTextVariants(filePath).catch(() => []),
     extractPdfBboxText(filePath).catch(() => "")
   ]);
+  if (!bboxText.trim()) {
+    const guidance = await diagnosePdfReader();
+    if (guidance) {
+      throw badRequest(guidance);
+    }
+  }
   const parsed = await parseCaneSummaryPdfWithFallback(filePath, textVariants, bboxText);
 
   return {
@@ -547,7 +554,7 @@ async function extractPdfTextVariants(filePath: string) {
 
 async function execPdfText(filePath: string, args: string[]) {
   try {
-    const { stdout } = await execFileAsync("pdftotext", args, {
+    const { stdout } = await execFileAsync(resolveExternalCommand("pdftotext"), args, {
       maxBuffer: 10 * 1024 * 1024
     });
     return stdout;
@@ -884,13 +891,30 @@ function extractRenderedPageNumber(fileName: string) {
 
 async function extractPdfBboxText(filePath: string) {
   try {
-    const { stdout } = await execFileAsync("pdftotext", ["-bbox-layout", filePath, "-"], {
+    const { stdout } = await execFileAsync(resolveExternalCommand("pdftotext"), ["-bbox-layout", filePath, "-"], {
       maxBuffer: 10 * 1024 * 1024
     });
     return stdout;
   } catch {
     throw badRequest("Nao foi possivel ler as posicoes do PDF. Instale o pacote poppler-utils para habilitar pdftotext.");
   }
+}
+
+const pdfReaderDiagnoses = new Map<string, Promise<string | null>>();
+
+function diagnosePdfReader() {
+  const command = resolveExternalCommand("pdftotext");
+  let diagnosis = pdfReaderDiagnoses.get(command);
+  if (!diagnosis) {
+    diagnosis = new Promise<string | null>((resolve) => {
+      execFile(command, ["-h"], { timeout: 10_000 }, (error, stdout, stderr) => {
+        const missing = (error as NodeJS.ErrnoException | null)?.code === "ENOENT";
+        resolve(pdfReaderGuidance({ command, missing, helpOutput: `${stdout ?? ""}${stderr ?? ""}` }));
+      });
+    });
+    pdfReaderDiagnoses.set(command, diagnosis);
+  }
+  return diagnosis;
 }
 
 function parseCaneSummaryPdfBboxRows(text: string, entryDate: Date | undefined): PdfHighlightRow[] {

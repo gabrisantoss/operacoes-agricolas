@@ -2,9 +2,9 @@ import type { PdfOverlapAnalysis } from "./types";
 
 const kindLabels: Record<PdfOverlapAnalysis["alerts"][number]["kind"], string> = {
   IDENTICAL_FILE: "Arquivo idêntico",
-  SAME_PERIOD: "Mesmo período",
+  SAME_PERIOD_SHARED_FIELDS: "Mesmo período com talhões em comum",
   PARTIAL_PERIOD_OVERLAP: "Período sobreposto com talhões em comum",
-  PERIOD_OVERLAP_OTHER_FIELDS: "Período sobreposto, outros talhões",
+  PERIOD_OVERLAP_OTHER_FIELDS: "Período coincidente, outras fazendas/talhões",
   COINCIDENT_RECORDS: "Conteúdo coincidente com outro período"
 };
 
@@ -78,8 +78,9 @@ export function PdfOverlapNotice({
       {overlap.status === "REVIEW_REQUIRED" ? (
         <label className="pdfOverlapReview">
           <input type="checkbox" checked={reviewed} onChange={(event) => onReviewedChange(event.target.checked)} />
-          Conferi os talhões e períodos acima e confirmo que este PDF traz entregas que ainda não foram lançadas. Se for o
-          mesmo conteúdo, exclua o lote anterior no Histórico em vez de gravar.
+          Conferi os talhões e períodos acima e confirmo que este PDF traz entregas que ainda não foram lançadas. A revisão
+          reduz, mas não elimina, o risco de contagem duplicada; se for o mesmo conteúdo, exclua o lote anterior no Histórico
+          em vez de gravar.
         </label>
       ) : null}
     </section>

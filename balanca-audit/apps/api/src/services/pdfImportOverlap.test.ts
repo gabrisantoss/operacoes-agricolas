@@ -40,13 +40,22 @@ test("the identical file is blocked before anything else", () => {
   assert.deepEqual(result.alerts.map((alert) => alert.kind), ["IDENTICAL_FILE"]);
 });
 
-test("another PDF for exactly the same period keeps the existing block and lists the fields", () => {
-  const result = analyze("2026-09-01", "2026-09-07", [field("1", 300, 10)]);
+test("the same period with shared fields requires review instead of a period-only block", () => {
+  const result = analyze("2026-09-01", "2026-09-07", [field("1", 310.5, 10), field("2", 280, 9)]);
 
-  assert.equal(result.status, "BLOCKED");
-  assert.equal(result.alerts[0]!.kind, "SAME_PERIOD");
-  assert.match(result.alerts[0]!.message, /Exclua o grupo existente/);
-  assert.equal(result.alerts[0]!.fields[0]!.fieldCode, "1");
+  assert.equal(result.status, "REVIEW_REQUIRED");
+  assert.equal(result.alerts[0]!.kind, "SAME_PERIOD_SHARED_FIELDS");
+  assert.deepEqual(result.alerts[0]!.fields.map((item) => [item.fieldCode, item.sameTotals]), [["1", true], ["2", false]]);
+  assert.match(result.alerts[0]!.message, /1 deles com a mesma cana/);
+  assert.match(result.alerts[0]!.message, /exclua o lote anterior/);
+});
+
+test("the same period for other farms and fields is a legitimate import", () => {
+  const result = analyze("2026-09-01", "2026-09-07", [field("1", 120, 4, "100-902"), field("2", 118.25, 4, "100-902")]);
+
+  assert.equal(result.status, "INFO");
+  assert.equal(result.alerts[0]!.kind, "PERIOD_OVERLAP_OTHER_FIELDS");
+  assert.equal(result.reviewToken, null);
 });
 
 test("a partially overlapping period with shared fields requires review and shows farm, field and period", () => {

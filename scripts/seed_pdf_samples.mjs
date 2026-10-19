@@ -23,7 +23,8 @@ const samples = [
   ["03-resumo-05-a-10-ago-mesmos-talhoes.pdf", "2026-08-05", "2026-08-10", [aurora("1", 150, 5), aurora("2", 140.5, 5)]],
   ["04-resumo-06-a-09-ago-outra-fazenda.pdf", "2026-08-06", "2026-08-09", [horizonte("1", 120, 4), horizonte("2", 118.25, 4)]],
   ["05-resumo-11-ago-conteudo-repetido.pdf", "2026-08-11", "2026-08-11", weekOne],
-  ["06-resumo-01-a-07-ago-corrigido.pdf", "2026-08-01", "2026-08-07", [aurora("1", 312, 10)]]
+  ["06-resumo-01-a-07-ago-corrigido.pdf", "2026-08-01", "2026-08-07", [aurora("1", 312, 10)]],
+  ["07-resumo-01-a-07-ago-outra-fazenda.pdf", "2026-08-01", "2026-08-07", [horizonte("3", 95, 3), horizonte("4", 92.5, 3)]]
 ];
 
 fs.mkdirSync(target, { recursive: true });

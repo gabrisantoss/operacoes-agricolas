@@ -34,6 +34,9 @@ if (!testDatabaseUrl || !hasPopplerPdftotext()) {
   const horizonte = (fieldCode: string, netWeight: number, trips: number): SyntheticCaneSummaryRow => ({
     supplierCode: "100", supplierNumber: "972", supplierName: "ORGANIZACAO FICTICIA DEMO", farmName: "FAZENDA SINTETICA HORIZONTE", fieldCode, netWeight, trips
   });
+  const cedro = (fieldCode: string, netWeight: number, trips: number): SyntheticCaneSummaryRow => ({
+    supplierCode: "100", supplierNumber: "973", supplierName: "ORGANIZACAO FICTICIA DEMO", farmName: "FAZENDA SINTETICA CEDRO", fieldCode, netWeight, trips
+  });
   const weekOneRows = [aurora("1", 310.5, 10), aurora("2", 295.25, 9), aurora("3", 301, 10), aurora("4", 288.75, 9)];
 
   async function writePdf(name: string, periodStart: string, periodEnd: string, rows: SyntheticCaneSummaryRow[]) {
@@ -52,6 +55,7 @@ if (!testDatabaseUrl || !hasPopplerPdftotext()) {
   before(async () => {
     createFarm({ code: "100-971", name: "FAZENDA SINTETICA AURORA", fields: ["1", "2", "3", "4"] });
     createFarm({ code: "100-972", name: "FAZENDA SINTETICA HORIZONTE", fields: ["1", "2"] });
+    createFarm({ code: "100-973", name: "FAZENDA SINTETICA CEDRO", fields: ["1", "2"] });
     await importPdf(await writePdf("semana-1.pdf", "2026-09-01", "2026-09-07", weekOneRows), "semana-1.pdf");
   });
 
@@ -76,22 +80,34 @@ if (!testDatabaseUrl || !hasPopplerPdftotext()) {
     assert.equal(countEntries(), 38);
   });
 
-  test("another PDF for the same period stays blocked and shows the fields", async () => {
+  test("another PDF for the same period with shared fields requires review", async () => {
     const file = await writePdf("semana-1-corrigida.pdf", "2026-09-01", "2026-09-07", [aurora("1", 312, 10)]);
     const preview = await previewImport(file, "semana-1-corrigida.pdf");
 
-    assert.equal(preview.overlap?.alerts[0]?.kind, "SAME_PERIOD");
+    assert.equal(preview.overlap?.status, "REVIEW_REQUIRED");
+    assert.equal(preview.overlap?.alerts[0]?.kind, "SAME_PERIOD_SHARED_FIELDS");
     assert.deepEqual(preview.overlap?.alerts[0]?.fields.map((field) => [field.farmName, field.fieldCode]), [["FAZENDA SINTETICA AURORA", "1"]]);
-    await assert.rejects(() => commitImport(file, "semana-1-corrigida.pdf", undefined, { expectedFileHash: preview.fileHash }), /Exclua o grupo existente/);
+    await assert.rejects(() => commitImport(file, "semana-1-corrigida.pdf", undefined, { expectedFileHash: preview.fileHash }), /exige revisao explicita/);
+    assert.equal(countEntries(), 38);
+  });
+
+  test("a PDF for the same period from another farm is saved without review", async () => {
+    const file = await writePdf("cedro-01-a-07.pdf", "2026-09-01", "2026-09-07", [cedro("1", 90, 3), cedro("2", 88.5, 3)]);
+    const preview = await previewImport(file, "cedro-01-a-07.pdf");
+
+    assert.equal(preview.overlap?.status, "INFO");
+    assert.equal(preview.overlap?.alerts[0]?.kind, "PERIOD_OVERLAP_OTHER_FIELDS");
+    await commitImport(file, "cedro-01-a-07.pdf", undefined, { expectedFileHash: preview.fileHash });
+    assert.equal(countEntries(), 44);
   });
 
   test("a partially overlapping PDF with shared fields is saved only after explicit review", async () => {
     const file = await writePdf("05-a-10.pdf", "2026-09-05", "2026-09-10", [aurora("1", 150, 5), aurora("2", 140.5, 5)]);
     const preview = await previewImport(file, "05-a-10.pdf");
-    const alert = preview.overlap!.alerts[0]!;
+    const alert = preview.overlap!.alerts.find((item) => item.kind === "PARTIAL_PERIOD_OVERLAP")!;
 
     assert.equal(preview.overlap?.status, "REVIEW_REQUIRED");
-    assert.equal(alert.kind, "PARTIAL_PERIOD_OVERLAP");
+    assert.ok(alert, "alerta de sobreposicao parcial ausente");
     assert.deepEqual(alert.overlapPeriod, { start: "2026-09-05", end: "2026-09-07" });
     assert.equal(alert.fileName, "semana-1.pdf");
 
@@ -100,10 +116,10 @@ if (!testDatabaseUrl || !hasPopplerPdftotext()) {
       () => commitImport(file, "05-a-10.pdf", undefined, { expectedFileHash: preview.fileHash, overlapReviewToken: "0".repeat(64) }),
       /exige revisao explicita/
     );
-    assert.equal(countEntries(), 38);
+    assert.equal(countEntries(), 44);
 
     await commitImport(file, "05-a-10.pdf", undefined, { expectedFileHash: preview.fileHash, overlapReviewToken: preview.overlap!.reviewToken! });
-    assert.equal(countEntries(), 48);
+    assert.equal(countEntries(), 54);
     const noted = db.prepare("SELECT COUNT(*) AS count FROM cane_entries WHERE notes LIKE '%Sobreposicao revisada%semana-1.pdf%'").get() as { count: number | string };
     assert.equal(Number(noted.count), 10);
   });
@@ -114,10 +130,25 @@ if (!testDatabaseUrl || !hasPopplerPdftotext()) {
     const preview = await previewImport(file, "horizonte-06-a-09.pdf");
 
     assert.equal(preview.overlap?.status, "INFO");
-    assert.equal(preview.overlap?.alerts.length, 2);
+    assert.equal(preview.overlap?.alerts.length, 3);
     assert.ok(preview.overlap?.alerts.every((alert) => alert.kind === "PERIOD_OVERLAP_OTHER_FIELDS"));
     await commitImport(file, "horizonte-06-a-09.pdf", undefined, { expectedFileHash: preview.fileHash });
-    assert.equal(countEntries(), 56);
+    assert.equal(countEntries(), 62);
+  });
+
+  test("a pdftotext without Poppler gives clear guidance and saves nothing", async () => {
+    const previous = process.env.PDFTOTEXT_CMD;
+    process.env.PDFTOTEXT_CMD = path.join(folder, "sem-poppler", "pdftotext.exe");
+    try {
+      await assert.rejects(
+        () => previewImport(path.join(folder, "semana-1.pdf"), "semana-1.pdf"),
+        /Leitura de PDF indisponivel: o programa pdftotext nao foi encontrado[\s\S]*POPPLER_BIN_DIR/
+      );
+    } finally {
+      if (previous === undefined) delete process.env.PDFTOTEXT_CMD;
+      else process.env.PDFTOTEXT_CMD = previous;
+    }
+    assert.equal(countEntries(), 62);
   });
 
   test("the same content under another period requires review", async () => {

@@ -232,14 +232,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_import_batches_file_hash_unique
   WHERE file_hash IS NOT NULL AND btrim(file_hash) <> '';
 CREATE INDEX IF NOT EXISTS idx_cane_entries_farm_field ON cane_entries(farm_id, field_id);
 CREATE INDEX IF NOT EXISTS idx_cane_entries_order_id ON cane_entries(order_id);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_import_batches_pdf_period_unique
-  ON import_batches (
-    COALESCE(period_start, report_date),
-    COALESCE(period_end, period_start, report_date)
-  )
-  WHERE (source_type = 'RELPESAG_PDF' OR lower(file_name) LIKE '%.pdf')
-    AND COALESCE(period_start, report_date) IS NOT NULL
-    AND COALESCE(period_end, period_start, report_date) IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_harvest_order_history_order_id ON harvest_order_history(order_id);
 CREATE INDEX IF NOT EXISTS idx_harvest_order_history_occurred_at ON harvest_order_history(occurred_at);
 CREATE INDEX IF NOT EXISTS idx_post_harvest_integration_events_status ON post_harvest_integration_events(status);

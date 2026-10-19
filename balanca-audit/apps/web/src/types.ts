@@ -369,7 +369,7 @@ export type PdfOverlapAnalysis = {
   newPeriod: { start: string; end: string };
   reviewToken: string | null;
   alerts: Array<{
-    kind: "IDENTICAL_FILE" | "SAME_PERIOD" | "PARTIAL_PERIOD_OVERLAP" | "PERIOD_OVERLAP_OTHER_FIELDS" | "COINCIDENT_RECORDS";
+    kind: "IDENTICAL_FILE" | "SAME_PERIOD_SHARED_FIELDS" | "PARTIAL_PERIOD_OVERLAP" | "PERIOD_OVERLAP_OTHER_FIELDS" | "COINCIDENT_RECORDS";
     severity: "INFO" | "REVIEW_REQUIRED" | "BLOCKED";
     batchId: string;
     fileName: string;
