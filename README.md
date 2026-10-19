@@ -49,6 +49,10 @@ As datas são relativas ao primeiro preparo. Os indicadores são calculados a pa
 
 ![Central de relatórios de safra](docs/screenshots/relatorios.png)
 
+| Importação de OS via Excel | Alerta de sobreposição de PDF |
+| --- | --- |
+| ![Prévia da importação de OS](docs/screenshots/importacao-os.png) | ![Revisão de sobreposição de PDF](docs/screenshots/sobreposicao-pdf.png) |
+
 ## Executar localmente
 
 Ambiente validado: **Windows, Python 3.12, Node.js 22, npm 11 e PostgreSQL 17**. Instale esses pré-requisitos antes de continuar. Não é necessário criar um serviço PostgreSQL para a demonstração: o controlador cria seu próprio cluster local.

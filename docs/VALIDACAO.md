@@ -14,6 +14,18 @@ Verificação local em **14/09/2026**. Esta página registra o que foi executado
 | npm audit | **0 vulnerabilidades conhecidas** reportadas no momento da verificação. |
 | Revisão de publicação | Código e nomes de arquivos examinados; artefatos operacionais e histórico anterior excluídos antes do primeiro commit. |
 
+## Revisão de 19/10/2026
+
+Verificação local da branch consolidada, em clone limpo, com `demo.py setup` e `demo.py test`:
+
+| Verificação | Resultado |
+| --- | --- |
+| Instalação em cluster demonstrativo novo | Migrações 0001 a 0005 aplicadas; cenário fictício, planilhas de OS e PDFs sintéticos gerados |
+| Testes Python | **143 aprovados** |
+| Testes da API TypeScript | **174 aprovados, 0 falhas, 0 ignorados**, com PostgreSQL real e PDFs sintéticos lidos pelo Poppler |
+| Interface | Importação CSV, central de relatórios, importação de OS e cenários de PDF percorridos com Playwright; capturas novas com dados fictícios |
+| npm audit | **4 alertas transitivos (2 críticos, 2 altos)** em `proxy-addr`, `shell-quote`, `brace-expansion` e `source-map-js`. As dependências não mudaram desde a publicação anterior; são avisos publicados depois de 14/09/2026 e ainda não tratados |
+
 ## Como repetir
 
 Com os pré-requisitos instalados, execute `python demo.py setup`, seguido de `python demo.py test`. No Windows, use um clone em pasta curta: em pastas profundas, os temporários das suítes de backup de Notas e Colaboradores ultrapassam o limite de 260 caracteres por caminho e essas suítes falham por motivo de ambiente (detalhes no README). A suíte TypeScript utiliza `oa_demo_tests`; testes de repositório criam schemas temporários nesse banco. As suítes Python utilizam fixtures locais isoladas, não as bases de uma instalação operacional.
