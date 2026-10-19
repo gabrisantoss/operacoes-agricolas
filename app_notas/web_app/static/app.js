@@ -447,6 +447,7 @@ function historyUrl(usePeriod) {
   params.set("q", $("#historySearch").value);
   params.set("field", $("#historyField").value);
   params.set("limit", "1000");
+  params.set("date_reference", $("#historyDateReference").value);
   if (usePeriod) {
     params.set("start", $("#historyStart").value);
     params.set("end", $("#historyEnd").value);
@@ -484,6 +485,7 @@ async function loadHistory(usePeriod = false) {
       <td>${escapeHtml(row.faz_plantio_nome || "")}</td>
       <td>${escapeHtml(row.variedade_nome || "")}</td>
       <td>${escapeHtml(row.data_colheita || "")}</td>
+      <td>${escapeHtml(row.data_plantio || "")}</td>
       <td>
         <div class="row-actions">
           <button class="secondary" data-copy="${escapeHtml(row.numero)}" type="button">Copiar</button>
@@ -492,7 +494,7 @@ async function loadHistory(usePeriod = false) {
       </td>
     </tr>
   `).join("");
-  $("#historyBody").innerHTML = rows || `<tr><td colspan="11">Nenhuma nota encontrada.</td></tr>`;
+  $("#historyBody").innerHTML = rows || `<tr><td colspan="12">Nenhuma nota encontrada.</td></tr>`;
 }
 
 function rankingCard(title, items) {
@@ -508,7 +510,7 @@ function rankingCard(title, items) {
 }
 
 async function loadDashboard() {
-  const params = new URLSearchParams({ start: $("#reportStart").value, end: $("#reportEnd").value });
+  const params = new URLSearchParams({ start: $("#reportStart").value, end: $("#reportEnd").value, date_reference: $("#reportDateReference").value });
   state.dashboardController?.abort();
   const controller = new AbortController();
   state.dashboardController = controller;
@@ -543,9 +545,10 @@ async function loadDashboard() {
 function downloadReport(kind, type) {
   const start = $("#reportStart").value;
   const end = $("#reportEnd").value;
+  const reference = $("#reportDateReference").value;
   const path = kind === "pdf"
-    ? `/api/relatorios/pdf?type=${encodeURIComponent(type)}&start=${start}&end=${end}`
-    : `/api/relatorios/export?type=${encodeURIComponent(type)}&start=${start}&end=${end}`;
+    ? `/api/relatorios/pdf?type=${encodeURIComponent(type)}&start=${start}&end=${end}&date_reference=${reference}`
+    : `/api/relatorios/export?type=${encodeURIComponent(type)}&start=${start}&end=${end}&date_reference=${reference}`;
   window.open(path, "_blank", "noreferrer");
 }
 
@@ -705,6 +708,8 @@ function bindEvents() {
     if (copy) copyNoteToNewLaunch(copy.dataset.copy);
     if (origin) showReferenceAudit(origin.dataset.origin);
   });
+  $("#reportDateReference").addEventListener("change", loadDashboard);
+  $("#historyDateReference").addEventListener("change", () => loadHistory(state.currentHistoryUsePeriod));
   $("#reportRefresh").addEventListener("click", loadDashboard);
   ["#reportStart", "#reportEnd"].forEach((selector) => {
     $(selector).addEventListener("input", () => {

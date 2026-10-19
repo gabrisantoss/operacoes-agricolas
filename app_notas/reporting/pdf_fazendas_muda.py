@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from date_reference import date_label
+
 from .base import PDFRelatorio, RelatorioFormatacaoMixin
 
 
@@ -13,6 +15,7 @@ class RelatorioPdfFazendasMudaBuilder(RelatorioFormatacaoMixin):
         periodo_real = f"{primeira_data.strftime('%d/%m/%Y')} a {ultima_data.strftime('%d/%m/%Y')}"
 
         pdf = PDFRelatorio(
+            date_reference_label=date_label(dados.get("date_reference", "data_colheita")),
             titulo="RELATORIO HISTORICO DE FAZENDAS DE MUDA",
             periodo=periodo_real,
             total_viagens=None,

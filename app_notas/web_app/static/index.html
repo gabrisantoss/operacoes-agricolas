@@ -121,6 +121,12 @@
           <option value="destino">Destino</option>
           <option value="variedade">Variedade</option>
         </select>
+        <label>Data de referencia
+          <select id="historyDateReference">
+            <option value="data_colheita">Data de colheita</option>
+            <option value="data_plantio">Data de plantio</option>
+          </select>
+        </label>
         <input id="historyStart" type="date">
         <input id="historyEnd" type="date">
         <button id="historyFilter" class="primary" type="button">Filtrar</button>
@@ -141,6 +147,7 @@
               <th>Destino</th>
               <th>Variedade</th>
               <th>Dt.Col</th>
+              <th>Dt.Plantio</th>
               <th>Acoes</th>
             </tr>
           </thead>
@@ -158,6 +165,12 @@
       </div>
 
       <div class="toolbar">
+        <label>Data de referencia
+          <select id="reportDateReference">
+            <option value="data_colheita">Data de colheita</option>
+            <option value="data_plantio">Data de plantio</option>
+          </select>
+        </label>
         <input id="reportStart" type="date">
         <input id="reportEnd" type="date">
         <button id="reportRefresh" class="primary" type="button">Atualizar</button>

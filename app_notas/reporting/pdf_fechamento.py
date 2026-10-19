@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from date_reference import date_label
+
 from .base import PDFRelatorio, RelatorioFormatacaoMixin
 
 
@@ -63,6 +65,10 @@ class PDFRelatorioFechamento(PDFRelatorio):
         self.set_y(32)
 
     def footer(self):
+        self.set_y(-23)
+        self.set_text_color(90, 98, 108)
+        self.set_font("Helvetica", "", 7)
+        self.cell(190, 4, self._safe("Referencia: " + self.date_reference_label), 0, 1, "C")
         if self.page_no() in self.paginas_sem_rodape:
             return
 
@@ -116,6 +122,7 @@ class RelatorioPdfFechamentoBuilder(RelatorioFormatacaoMixin):
             safra=safra,
             total_viagens=self._fmt_int(dados["total_geral"]),
         )
+        pdf.date_reference_label = date_label(dados.get("date_reference", "data_colheita"))
         pdf.alias_nb_pages()
         pdf.set_auto_page_break(auto=True, margin=15)
 

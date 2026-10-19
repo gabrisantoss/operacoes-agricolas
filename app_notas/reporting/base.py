@@ -41,8 +41,9 @@ class PDFRelatorio(FPDF):
         "logo.png",
     )
 
-    def __init__(self, titulo, periodo, total_viagens, logo_path=None, orientation="P"):
+    def __init__(self, titulo, periodo, total_viagens, logo_path=None, orientation="P", date_reference_label="Data de colheita"):
         super().__init__(orientation=orientation, unit="mm", format="A4")
+        self.date_reference_label = date_reference_label
         self.titulo = titulo
         self.periodo = periodo
         self.total_viagens = total_viagens
@@ -213,6 +214,10 @@ class PDFRelatorio(FPDF):
         self.set_y(32)
 
     def footer(self):
+        self.set_y(-23)
+        self.set_text_color(90, 98, 108)
+        self.set_font("Helvetica", "", 7)
+        self.cell(0, 4, self._safe("Referencia: " + getattr(self, "date_reference_label", "Data de colheita")), 0, 1, "C")
         self.set_y(-15)
         self.set_draw_color(*self.COLOR_BORDER)
         self.line(10, self.h - 15.5, self.w - 10, self.h - 15.5)

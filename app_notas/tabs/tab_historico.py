@@ -160,6 +160,11 @@ class TabHistorico(QtWidgets.QWidget):
         lbl_de.setObjectName("FormLabel")
         lbl_ate = QtWidgets.QLabel("Ate:")
         lbl_ate.setObjectName("FormLabel")
+        self.cb_date_reference = QtWidgets.QComboBox()
+        self.cb_date_reference.addItem("Data de colheita", "data_colheita")
+        self.cb_date_reference.addItem("Data de plantio", "data_plantio")
+        self.cb_date_reference.currentIndexChanged.connect(lambda *_: self.carregar_dados(self._usar_filtro_atual))
+        row_periodo.addWidget(self.cb_date_reference)
         row_periodo.addWidget(lbl_de)
         row_periodo.addWidget(self.dt_de)
         row_periodo.addWidget(lbl_ate)
@@ -192,7 +197,7 @@ class TabHistorico(QtWidgets.QWidget):
             6: 64,
             7: 86,
             8: 180,
-            9: 72,
+            9: 130,
             10: 86,
             11: 200,
             12: 120,
@@ -200,6 +205,7 @@ class TabHistorico(QtWidgets.QWidget):
         }
         for coluna, largura in larguras.items():
             self.table.setColumnWidth(coluna, largura)
+        self.table.setColumnWidth(9, max(130, self.table.horizontalHeader().fontMetrics().horizontalAdvance(HISTORICO_HEADERS[9]) + 28))
         layout.addWidget(self.table, 1)
 
         self._atualizar_resumo(0, "aguardando abertura da aba")
@@ -212,8 +218,8 @@ class TabHistorico(QtWidgets.QWidget):
 
     def _buscar_registros(self, usar_filtro: bool = False, numero_prefixo: str | None = None):
         if usar_filtro:
-            return self.db.buscar_notas_historico(*self._periodo_sql(), numero_prefixo=numero_prefixo)
-        return self.db.buscar_notas_historico(numero_prefixo=numero_prefixo)
+            return self.db.buscar_notas_historico(*self._periodo_sql(), numero_prefixo=numero_prefixo, date_reference=self.cb_date_reference.currentData())
+        return self.db.buscar_notas_historico(numero_prefixo=numero_prefixo, date_reference=self.cb_date_reference.currentData())
 
     def _linhas_modelo(self, rows) -> list[list[str]]:
         return [["" if value in (None, "") else str(value) for value in row] for row in rows]
@@ -305,6 +311,7 @@ class TabHistorico(QtWidgets.QWidget):
             for col_index, header in enumerate(headers):
                 index = self.proxy.index(row_index, col_index)
                 registro[header] = str(self.proxy.data(index) or "")
+            registro["Data de referencia"] = self.cb_date_reference.currentText()
             dados.append(registro)
         return dados
 

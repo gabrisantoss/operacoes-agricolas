@@ -1,17 +1,19 @@
 from __future__ import annotations
 
 from collections import Counter
+from date_reference import date_column
 from datetime import datetime
 
 from .base import RelatorioFormatacaoMixin
 
 
 class RelatorioDataService(RelatorioFormatacaoMixin):
-    def __init__(self, conn):
+    def __init__(self, conn, date_reference="data_colheita"):
         self.conn = conn
+        self.date_reference = date_column(date_reference)
 
     def coletar_dados_pdf_plantio_detalhado(self, d_ini, d_fim):
-        sql = """
+        sql = f"""
             SELECT
                 numero,
                 data_colheita,
@@ -23,7 +25,7 @@ class RelatorioDataService(RelatorioFormatacaoMixin):
                 faz_muda_cod,
                 faz_muda_nome
             FROM notas
-            WHERE data_colheita BETWEEN ? AND ?
+            WHERE {self.date_reference} BETWEEN ? AND ?
             ORDER BY
                 data_colheita,
                 data_plantio,
@@ -74,6 +76,7 @@ class RelatorioDataService(RelatorioFormatacaoMixin):
             )
 
         return {
+            "date_reference": self.date_reference,
             "linhas": linhas,
             "total_geral": len(linhas),
             "metricas": {
@@ -94,12 +97,12 @@ class RelatorioDataService(RelatorioFormatacaoMixin):
             return texto
 
     def coletar_dados_pdf_diario(self, d_ini, d_fim):
-        sql = """
-            SELECT data_colheita, faz_plantio_nome, variedade_nome, COUNT(*)
+        sql = f"""
+            SELECT {self.date_reference}, faz_plantio_nome, variedade_nome, COUNT(*)
             FROM notas
-            WHERE data_colheita BETWEEN ? AND ?
-            GROUP BY data_colheita, faz_plantio_nome, variedade_nome
-            ORDER BY data_colheita
+            WHERE {self.date_reference} BETWEEN ? AND ?
+            GROUP BY {self.date_reference}, faz_plantio_nome, variedade_nome
+            ORDER BY {self.date_reference}
         """
         rows = self.conn.execute(sql, (d_ini, d_fim)).fetchall()
         if not rows:
@@ -127,19 +130,20 @@ class RelatorioDataService(RelatorioFormatacaoMixin):
             total_geral += qtd
 
         return {
+            "date_reference": self.date_reference,
             "linhas": linhas,
             "total_geral": total_geral,
         }
 
     def coletar_dados_pdf_simplificado(self, d_ini, d_fim):
-        sql = """
+        sql = f"""
             SELECT
                 faz_muda_cod,
                 faz_muda_nome,
                 faz_plantio_cod,
                 faz_plantio_nome
             FROM notas
-            WHERE data_colheita BETWEEN ? AND ?
+            WHERE {self.date_reference} BETWEEN ? AND ?
         """
         rows = self.conn.execute(sql, (d_ini, d_fim)).fetchall()
         if not rows:
@@ -307,6 +311,7 @@ class RelatorioDataService(RelatorioFormatacaoMixin):
         )
 
         return {
+            "date_reference": self.date_reference,
             "total_geral": len(rows),
             "metricas": {
                 "origens_ativas": len(origens_ordenadas),
@@ -348,16 +353,16 @@ class RelatorioDataService(RelatorioFormatacaoMixin):
         }
 
     def coletar_dados_pdf_fechamento_safra(self, d_ini, d_fim):
-        metricas_sql = """
+        metricas_sql = f"""
             SELECT
                 COUNT(*) AS total,
-                MIN(data_colheita) AS primeira_data,
-                MAX(data_colheita) AS ultima_data,
+                MIN({self.date_reference}) AS primeira_data,
+                MAX({self.date_reference}) AS ultima_data,
                 COUNT(DISTINCT NULLIF(TRIM(faz_muda_cod), '')) AS origens,
                 COUNT(DISTINCT NULLIF(TRIM(faz_plantio_cod), '')) AS destinos,
                 COUNT(DISTINCT NULLIF(TRIM(variedade_nome), '')) AS variedades
             FROM notas
-            WHERE data_colheita BETWEEN ? AND ?
+            WHERE {self.date_reference} BETWEEN ? AND ?
         """
         metricas_row = self.conn.execute(metricas_sql, (d_ini, d_fim)).fetchone()
         total_geral = int(metricas_row[0] or 0) if metricas_row else 0
@@ -409,6 +414,7 @@ class RelatorioDataService(RelatorioFormatacaoMixin):
         fluxos = self._coletar_fluxos_fechamento(d_ini, d_fim)
 
         return {
+            "date_reference": self.date_reference,
             "total_geral": total_geral,
             "periodo": {
                 "primeira_data": primeira_data,
@@ -458,12 +464,11 @@ class RelatorioDataService(RelatorioFormatacaoMixin):
                 COALESCE(NULLIF(TRIM({campo_apoio_cod}), ''), NULLIF(TRIM({campo_apoio_nome}), '')) AS apoio,
                 NULLIF(TRIM(variedade_nome), '') AS variedade
             FROM notas
-            WHERE data_colheita BETWEEN ? AND ?
+            WHERE {self.date_reference} BETWEEN ? AND ?
               AND {campo_nome} IS NOT NULL
               AND TRIM({campo_nome}) <> ''
             ORDER BY {campo_nome}, data_colheita
         """
-
         grupos = {}
         for row in self.conn.execute(sql, (d_ini, d_fim)).fetchall():
             codigo = self._texto_relatorio(row[0], "-")
@@ -560,14 +565,14 @@ class RelatorioDataService(RelatorioFormatacaoMixin):
         return [primeiro, *meio, ultimo]
 
     def _coletar_ranking_variedades_fechamento(self, d_ini, d_fim, total_geral):
-        sql = """
+        sql = f"""
             SELECT
                 COALESCE(NULLIF(TRIM(variedade_nome), ''), 'NÃO INFORMADA') AS nome,
                 COUNT(*) AS qtd,
                 COUNT(DISTINCT COALESCE(NULLIF(TRIM(faz_muda_cod), ''), NULLIF(TRIM(faz_muda_nome), ''))) AS origens,
                 COUNT(DISTINCT COALESCE(NULLIF(TRIM(faz_plantio_cod), ''), NULLIF(TRIM(faz_plantio_nome), ''))) AS destinos
             FROM notas
-            WHERE data_colheita BETWEEN ? AND ?
+            WHERE {self.date_reference} BETWEEN ? AND ?
               AND variedade_nome IS NOT NULL
               AND TRIM(variedade_nome) <> ''
             GROUP BY COALESCE(NULLIF(TRIM(variedade_nome), ''), 'NÃO INFORMADA')
@@ -594,7 +599,7 @@ class RelatorioDataService(RelatorioFormatacaoMixin):
                 COUNT(*) AS qtd,
                 GROUP_CONCAT(DISTINCT NULLIF(TRIM({campo_apoio}), '')) AS apoio
             FROM notas
-            WHERE data_colheita BETWEEN ? AND ?
+            WHERE {self.date_reference} BETWEEN ? AND ?
               AND {campo_nome} IS NOT NULL
               AND TRIM({campo_nome}) <> ''
             GROUP BY UPPER(TRIM({campo_nome}))
@@ -618,7 +623,7 @@ class RelatorioDataService(RelatorioFormatacaoMixin):
         return itens
 
     def _coletar_fluxos_fechamento(self, d_ini, d_fim):
-        sql = """
+        sql = f"""
             SELECT
                 faz_muda_cod,
                 faz_muda_nome,
@@ -626,11 +631,11 @@ class RelatorioDataService(RelatorioFormatacaoMixin):
                 faz_plantio_cod,
                 faz_plantio_nome,
                 COUNT(*) as qtd,
-                MIN(data_colheita) as data_inicio,
-                MAX(data_colheita) as data_fim,
+                MIN({self.date_reference}) as data_inicio,
+                MAX({self.date_reference}) as data_fim,
                 GROUP_CONCAT(talhao) as talhoes
             FROM notas
-            WHERE data_colheita BETWEEN ? AND ?
+            WHERE {self.date_reference} BETWEEN ? AND ?
               AND faz_muda_nome IS NOT NULL
               AND TRIM(faz_muda_nome) <> ''
               AND faz_plantio_nome IS NOT NULL
@@ -733,16 +738,16 @@ class RelatorioDataService(RelatorioFormatacaoMixin):
         return fluxos
 
     def coletar_dados_pdf_fazendas_muda(self, d_ini, d_fim):
-        sql_periodo = """
+        sql_periodo = f"""
             SELECT
                 faz_muda_cod,
                 faz_muda_nome,
-                data_colheita
+                {self.date_reference}
             FROM notas
-            WHERE data_colheita BETWEEN ? AND ?
+            WHERE {self.date_reference} BETWEEN ? AND ?
               AND faz_muda_nome IS NOT NULL
               AND TRIM(faz_muda_nome) <> ''
-            ORDER BY data_colheita, numero
+            ORDER BY {self.date_reference}, numero
         """
         rows_periodo = self.conn.execute(sql_periodo, (d_ini, d_fim)).fetchall()
         if not rows_periodo:
@@ -774,15 +779,17 @@ class RelatorioDataService(RelatorioFormatacaoMixin):
             fazenda["qtd"] += 1
             fazendas_ativas.add(fazenda_key)
 
-        sql_historico = """
+        sql_historico = f"""
             SELECT
                 faz_muda_cod,
                 faz_muda_nome,
-                data_colheita
+                {self.date_reference}
             FROM notas
             WHERE faz_muda_nome IS NOT NULL
               AND TRIM(faz_muda_nome) <> ''
-            ORDER BY data_colheita, numero
+              AND {self.date_reference} IS NOT NULL
+              AND TRIM({self.date_reference}) <> ''
+            ORDER BY {self.date_reference}, numero
         """
         rows_historico = self.conn.execute(sql_historico).fetchall()
         primeira_data_periodo = None
@@ -837,6 +844,7 @@ class RelatorioDataService(RelatorioFormatacaoMixin):
         )
 
         return {
+            "date_reference": self.date_reference,
             "total_geral": total_geral,
             "fazendas": fazendas_lista,
             "metricas": {
@@ -847,7 +855,7 @@ class RelatorioDataService(RelatorioFormatacaoMixin):
         }
 
     def coletar_dados_pdf_geral(self, d_ini, d_fim):
-        sql = """
+        sql = f"""
             SELECT
                 faz_muda_cod,
                 faz_muda_nome,
@@ -855,11 +863,11 @@ class RelatorioDataService(RelatorioFormatacaoMixin):
                 faz_plantio_cod,
                 faz_plantio_nome,
                 COUNT(*) as qtd,
-                MIN(data_colheita) as data_inicio,
-                MAX(data_colheita) as data_fim,
+                MIN({self.date_reference}) as data_inicio,
+                MAX({self.date_reference}) as data_fim,
                 GROUP_CONCAT(talhao) as talhoes
             FROM notas
-            WHERE data_colheita BETWEEN ? AND ?
+            WHERE {self.date_reference} BETWEEN ? AND ?
               AND faz_muda_nome IS NOT NULL
               AND TRIM(faz_muda_nome) <> ''
               AND faz_plantio_nome IS NOT NULL
@@ -1035,13 +1043,13 @@ class RelatorioDataService(RelatorioFormatacaoMixin):
         top_variedades = variedades_ranking[:5]
         top_destinos = sorted(destinos_totais.values(), key=lambda item: (-item["qtd"], self._sort_key_texto(item["label"])))[:5]
 
-        pendencias_sql = """
+        pendencias_sql = f"""
             SELECT
                 SUM(CASE WHEN variedade_nome IS NULL OR TRIM(variedade_nome) = '' THEN 1 ELSE 0 END),
                 SUM(CASE WHEN faz_plantio_nome IS NULL OR TRIM(faz_plantio_nome) = '' THEN 1 ELSE 0 END),
                 SUM(CASE WHEN faz_muda_nome IS NULL OR TRIM(faz_muda_nome) = '' THEN 1 ELSE 0 END)
             FROM notas
-            WHERE data_colheita BETWEEN ? AND ?
+            WHERE {self.date_reference} BETWEEN ? AND ?
         """
         pendencias = self.conn.execute(pendencias_sql, (d_ini, d_fim)).fetchone()
 
@@ -1051,7 +1059,7 @@ class RelatorioDataService(RelatorioFormatacaoMixin):
             "sem_origem": [],
         }
 
-        pendencias_detalhes_sql = """
+        pendencias_detalhes_sql = f"""
             SELECT
                 numero,
                 data_colheita,
@@ -1061,13 +1069,13 @@ class RelatorioDataService(RelatorioFormatacaoMixin):
                 faz_plantio_cod,
                 faz_plantio_nome
             FROM notas
-            WHERE data_colheita BETWEEN ? AND ?
+            WHERE {self.date_reference} BETWEEN ? AND ?
               AND (
                     variedade_nome IS NULL OR TRIM(variedade_nome) = ''
                  OR faz_plantio_nome IS NULL OR TRIM(faz_plantio_nome) = ''
                  OR faz_muda_nome IS NULL OR TRIM(faz_muda_nome) = ''
               )
-            ORDER BY data_colheita, numero
+            ORDER BY {self.date_reference}, numero
         """
         for row in self.conn.execute(pendencias_detalhes_sql, (d_ini, d_fim)).fetchall():
             numero = self._texto_relatorio(row[0], "-")
@@ -1116,6 +1124,7 @@ class RelatorioDataService(RelatorioFormatacaoMixin):
             return None
 
         return {
+            "date_reference": self.date_reference,
             "total_geral": total_geral,
             "grupos": grupos_finais,
             "metricas": {

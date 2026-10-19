@@ -34,6 +34,7 @@ from agricola_shared.audit_spool import DurableAuditSpool  # noqa: E402
 from agricola_shared.db_compat import connect as connect_postgres_db  # noqa: E402
 from agricola_shared.portal_auth import read_portal_session  # noqa: E402
 from agricola_shared.report_security import allocate_report_path, neutralize_dataframe  # noqa: E402
+from date_reference import date_column, date_label
 from database import CorrectionPreviewConflict, DB, backup_sqlite_file  # noqa: E402
 
 try:
@@ -579,13 +580,14 @@ def date_days_between(d_ini: str, d_fim: str) -> int:
         return 1
 
 
-def first_note_date(db: DB) -> str:
+def first_note_date(db: DB, date_reference="data_colheita") -> str:
+    reference = date_column(date_reference)
     row = db._fetchone(
-        """
-        SELECT MIN(data_colheita) AS inicio
+        f"""
+        SELECT MIN({reference}) AS inicio
         FROM notas
-        WHERE data_colheita IS NOT NULL
-          AND TRIM(data_colheita) <> ''
+        WHERE {reference} IS NOT NULL
+          AND TRIM({reference}) <> ''
         """
     )
     value = str(row["inicio"] or "") if row else ""
@@ -1307,6 +1309,7 @@ class AppNotasWebHandler(SimpleHTTPRequestHandler):
         self.send_json({"ok": True, "message": f"Nota {saved} salva com sucesso.", "numero": saved})
 
     def handle_historico(self, params: dict[str, list[str]]) -> None:
+        reference = date_column(params.get("date_reference", ["data_colheita"])[0])
         db = get_db()
         start = params.get("start", [""])[0] or None
         end = params.get("end", [""])[0] or None
@@ -1317,9 +1320,9 @@ class AppNotasWebHandler(SimpleHTTPRequestHandler):
         use_period = bool(start and end)
 
         if field == "nota" and q:
-            rows = db.buscar_notas_historico(start if use_period else None, end if use_period else None, numero_prefixo=q)
+            rows = db.buscar_notas_historico(start if use_period else None, end if use_period else None, numero_prefixo=q, date_reference=reference)
         else:
-            rows = db.buscar_notas_historico(start if use_period else None, end if use_period else None)
+            rows = db.buscar_notas_historico(start if use_period else None, end if use_period else None, date_reference=reference)
             if q:
                 columns = HISTORICO_FIELD_MAP.get(field, HISTORICO_HEADERS)
                 q_lc = q.lower()
@@ -1331,14 +1334,15 @@ class AppNotasWebHandler(SimpleHTTPRequestHandler):
 
         total = len(rows)
         items = [row_dict(row) for row in paginate_items(rows, limit, offset)]
-        self.send_json({"ok": True, "items": items, "total": total, "limit": limit, "offset": offset})
+        self.send_json({"ok": True, "items": items, "total": total, "date_reference": reference, "limit": limit, "offset": offset})
 
     def handle_dashboard(self, params: dict[str, list[str]]) -> None:
+        reference = date_column(params.get("date_reference", ["data_colheita"])[0])
         db = get_db()
         d_fim = parse_date_param(params, "end", today_sql())
-        d_ini = parse_date_param(params, "start", first_note_date(db))
+        d_ini = parse_date_param(params, "start", first_note_date(db, reference))
         days = max(1, date_days_between(d_ini, d_fim))
-        total = db.contar_notas_periodo(d_ini, d_fim)
+        total = db.contar_notas_periodo(d_ini, d_fim, date_reference=reference)
         rankings = {}
         for key, coluna in {
             "motoristas": "motorista_nome",
@@ -1350,16 +1354,16 @@ class AppNotasWebHandler(SimpleHTTPRequestHandler):
         }.items():
             rankings[key] = [
                 {"nome": str(row["nome"] or "-"), "qtd": int(row["qtd"] or 0)}
-                for row in db.top_por_coluna(coluna, d_ini, d_fim, limit=5)
+                for row in db.top_por_coluna(coluna, d_ini, d_fim, limit=5, date_reference=reference)
             ]
         self.send_json(
             {
                 "ok": True,
-                "periodo": {"start": d_ini, "end": d_fim},
+                "periodo": {"start": d_ini, "end": d_fim, "date_reference": reference},
                 "metrics": {
                     "total": total,
                     "media": round(total / days, 1),
-                    "diasAtivos": db.contar_dias_ativos_periodo(d_ini, d_fim),
+                    "diasAtivos": db.contar_dias_ativos_periodo(d_ini, d_fim, date_reference=reference),
                 },
                 "rankings": rankings,
             }
@@ -1529,27 +1533,30 @@ class AppNotasWebHandler(SimpleHTTPRequestHandler):
 
     def get_period_params(self, params: dict[str, list[str]]) -> tuple[str, str]:
         d_fim = parse_date_param(params, "end", today_sql())
-        d_ini = parse_date_param(params, "start", first_note_date(get_db()))
+        d_ini = parse_date_param(params, "start", first_note_date(get_db(), date_column(params.get("date_reference", ["data_colheita"])[0])))
         return d_ini, d_fim
 
     def handle_export(self, params: dict[str, list[str]]) -> None:
+        reference = date_column(params.get("date_reference", ["data_colheita"])[0])
         tipo = (params.get("type", ["bruto"])[0] or "bruto").strip()
         d_ini, d_fim = self.get_period_params(params)
         db = get_db()
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         if tipo == "fluxo":
-            df = db.dataframe_fluxo(d_ini, d_fim)
+            df = db.dataframe_fluxo(d_ini, d_fim, date_reference=reference)
             filename = f"Fluxo_{d_ini}_a_{d_fim}_{timestamp}.xlsx"
         else:
-            df = db.dataframe_historico(d_ini, d_fim)
+            df = db.dataframe_historico(d_ini, d_fim, date_reference=reference)
             filename = f"Dados_Brutos_{d_ini}_a_{d_fim}_{timestamp}.xlsx"
         if df.empty:
             return self.send_error_json("Sem dados no periodo.", HTTPStatus.NOT_FOUND)
         path = generated_path(filename, self.portal_user())
+        df["Data de referencia"] = date_label(reference)
         neutralize_dataframe(df).to_excel(path, index=False)
         self.send_file_response(path, path.name, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
     def handle_pdf(self, params: dict[str, list[str]]) -> None:
+        reference = date_column(params.get("date_reference", ["data_colheita"])[0])
         from reporting import (
             RelatorioDataService,
             RelatorioPdfDiarioBuilder,
@@ -1564,7 +1571,7 @@ class AppNotasWebHandler(SimpleHTTPRequestHandler):
         d_ini, d_fim = self.get_period_params(params)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         with independent_report_connection() as conn:
-            service = RelatorioDataService(conn)
+            service = RelatorioDataService(conn, reference)
             if tipo == "geral":
                 dados = service.coletar_dados_pdf_geral(d_ini, d_fim)
                 builder = RelatorioPdfGeralBuilder()
@@ -1599,6 +1606,7 @@ class AppNotasWebHandler(SimpleHTTPRequestHandler):
         if pdf is None:
             return self.send_error_json("Sem dados no periodo.", HTTPStatus.NOT_FOUND)
         path = generated_path(filename, self.portal_user())
+        pdf.date_reference_label = date_label(reference)
         pdf.output(str(path))
         self.send_file_response(path, path.name, "application/pdf")
 

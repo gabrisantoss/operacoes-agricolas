@@ -8,6 +8,7 @@ from PyQt5 import QtCore, QtWidgets
 from app_config import DB_ENGINE
 from app_logging import get_logger
 from database import DB
+from date_reference import date_label
 from agricola_shared.report_security import neutralize_dataframe
 from reporting import (
     RelatorioDataService,
@@ -96,6 +97,10 @@ class AbaRelatorios(RelatorioFormatacaoMixin, QtWidgets.QWidget):
         self.dt_fim.setMinimumWidth(120)
         self.dt_fim.setMinimumHeight(40)
 
+        self.cb_date_reference = QtWidgets.QComboBox()
+        self.cb_date_reference.addItem("Data de colheita", "data_colheita")
+        self.cb_date_reference.addItem("Data de plantio", "data_plantio")
+        self.cb_date_reference.currentIndexChanged.connect(lambda *_: self.gerar_dashboard(show_feedback=False))
         self.cb_visao = QtWidgets.QComboBox()
         self.cb_visao.addItems(["Diario", "Mensal", "Anual"])
         self.cb_visao.currentIndexChanged.connect(lambda *_: self.gerar_dashboard(show_feedback=False))
@@ -210,6 +215,7 @@ class AbaRelatorios(RelatorioFormatacaoMixin, QtWidgets.QWidget):
         row3.addWidget(self.progress_execucao, 2)
         row3.addWidget(self.btn_cancelar_tarefa)
 
+        filter_layout.addWidget(self.cb_date_reference)
         filter_layout.addLayout(row1)
         filter_layout.addLayout(row2)
         filter_layout.addLayout(row3)
@@ -371,7 +377,7 @@ class AbaRelatorios(RelatorioFormatacaoMixin, QtWidgets.QWidget):
     def _on_tarefa_cancelada(self, mensagem: str) -> None:
         QtWidgets.QMessageBox.information(self, "Cancelado", mensagem)
 
-    def _tarefa_dashboard(self, d_ini: str, d_fim: str, dias_intervalo: int, progress, is_cancelled):
+    def _tarefa_dashboard(self, d_ini: str, d_fim: str, dias_intervalo: int, progress, is_cancelled, date_reference="data_colheita"):
         if not MATPLOTLIB_INSTALADO:
             return None
 
@@ -388,7 +394,7 @@ class AbaRelatorios(RelatorioFormatacaoMixin, QtWidgets.QWidget):
         for index, coluna in enumerate(colunas, start=1):
             if is_cancelled():
                 return None
-            ranking = self.db.top_por_coluna(coluna, d_ini, d_fim, limit=5)
+            ranking = self.db.top_por_coluna(coluna, d_ini, d_fim, limit=5, date_reference=date_reference)
             nomes = [str(row["nome"]).strip() for row in ranking]
             qtds = [int(row["qtd"]) for row in ranking]
             dados_graficos.append((nomes, qtds))
@@ -397,9 +403,9 @@ class AbaRelatorios(RelatorioFormatacaoMixin, QtWidgets.QWidget):
         if is_cancelled():
             return None
 
-        total = self.db.contar_notas_periodo(d_ini, d_fim)
+        total = self.db.contar_notas_periodo(d_ini, d_fim, date_reference=date_reference)
         media = total / dias_intervalo if dias_intervalo > 0 else 0
-        dias_ativos = self.db.contar_dias_ativos_periodo(d_ini, d_fim)
+        dias_ativos = self.db.contar_dias_ativos_periodo(d_ini, d_fim, date_reference=date_reference)
         progress(100, "Dashboard atualizado.")
         return {
             "dados_graficos": dados_graficos,
@@ -467,7 +473,7 @@ class AbaRelatorios(RelatorioFormatacaoMixin, QtWidgets.QWidget):
         if show_feedback:
             self.lbl_execucao.setText("Atualizando dashboard...")
         self._iniciar_tarefa(
-            BackgroundTask(self._tarefa_dashboard, d_ini, d_fim, dias_intervalo),
+            BackgroundTask(self._tarefa_dashboard, d_ini, d_fim, dias_intervalo, date_reference=self.cb_date_reference.currentData()),
             "Atualizando dashboard...",
             self._aplicar_dashboard,
         )
@@ -477,36 +483,38 @@ class AbaRelatorios(RelatorioFormatacaoMixin, QtWidgets.QWidget):
             self.gerar_dashboard(show_feedback=False)
 
     @staticmethod
-    def _tarefa_excel_fluxo(db, d_ini: str, d_fim: str, caminho: str, progress, is_cancelled):
+    def _tarefa_excel_fluxo(db, d_ini: str, d_fim: str, caminho: str, progress, is_cancelled, date_reference="data_colheita"):
         progress(15, "Coletando dados do fluxo...")
-        df = db.dataframe_fluxo(d_ini, d_fim)
+        df = db.dataframe_fluxo(d_ini, d_fim, date_reference=date_reference)
         if df.empty:
             raise ValueError("Sem dados no periodo.")
         if is_cancelled():
             return None
         progress(75, "Gravando arquivo Excel...")
+        df["Data de referencia"] = date_label(date_reference)
         neutralize_dataframe(df).to_excel(caminho, index=False)
         progress(100, "Excel concluido.")
         return caminho
 
     @staticmethod
-    def _tarefa_excel_bruto(db, d_ini: str, d_fim: str, caminho: str, progress, is_cancelled):
+    def _tarefa_excel_bruto(db, d_ini: str, d_fim: str, caminho: str, progress, is_cancelled, date_reference="data_colheita"):
         progress(15, "Coletando dados brutos...")
-        df = db.dataframe_historico(d_ini, d_fim)
+        df = db.dataframe_historico(d_ini, d_fim, date_reference=date_reference)
         if df.empty:
             raise ValueError("Sem dados brutos no periodo.")
         if is_cancelled():
             return None
         progress(75, "Gravando arquivo Excel...")
+        df["Data de referencia"] = date_label(date_reference)
         neutralize_dataframe(df).to_excel(caminho, index=False)
         progress(100, "Excel concluido.")
         return caminho
 
     @classmethod
-    def _tarefa_pdf_diario(cls, db_path, d_ini: str, d_fim: str, caminho: str, progress, is_cancelled):
+    def _tarefa_pdf_diario(cls, db_path, d_ini: str, d_fim: str, caminho: str, progress, is_cancelled, date_reference="data_colheita"):
         progress(10, "Coletando dados do PDF diario...")
         with report_connection(db_path) as conn:
-            service = RelatorioDataService(conn)
+            service = RelatorioDataService(conn, date_reference)
             dados = service.coletar_dados_pdf_diario(d_ini, d_fim)
         if not dados:
             raise ValueError("Sem dados no periodo.")
@@ -519,10 +527,10 @@ class AbaRelatorios(RelatorioFormatacaoMixin, QtWidgets.QWidget):
         return caminho
 
     @classmethod
-    def _tarefa_pdf_geral(cls, db_path, d_ini: str, d_fim: str, caminho: str, progress, is_cancelled):
+    def _tarefa_pdf_geral(cls, db_path, d_ini: str, d_fim: str, caminho: str, progress, is_cancelled, date_reference="data_colheita"):
         progress(10, "Coletando dados do PDF analitico...")
         with report_connection(db_path) as conn:
-            service = RelatorioDataService(conn)
+            service = RelatorioDataService(conn, date_reference)
             dados = service.coletar_dados_pdf_geral(d_ini, d_fim)
         if not dados:
             raise ValueError("Sem dados no periodo.")
@@ -535,10 +543,10 @@ class AbaRelatorios(RelatorioFormatacaoMixin, QtWidgets.QWidget):
         return caminho
 
     @classmethod
-    def _tarefa_pdf_mudas(cls, db_path, d_ini: str, d_fim: str, caminho: str, progress, is_cancelled):
+    def _tarefa_pdf_mudas(cls, db_path, d_ini: str, d_fim: str, caminho: str, progress, is_cancelled, date_reference="data_colheita"):
         progress(10, "Coletando historico de fazendas...")
         with report_connection(db_path) as conn:
-            service = RelatorioDataService(conn)
+            service = RelatorioDataService(conn, date_reference)
             dados = service.coletar_dados_pdf_fazendas_muda(d_ini, d_fim)
         if not dados:
             raise ValueError("Sem fazendas de muda com notas no periodo.")
@@ -551,10 +559,10 @@ class AbaRelatorios(RelatorioFormatacaoMixin, QtWidgets.QWidget):
         return caminho
 
     @classmethod
-    def _tarefa_pdf_simplificado(cls, db_path, d_ini: str, d_fim: str, caminho: str, progress, is_cancelled):
+    def _tarefa_pdf_simplificado(cls, db_path, d_ini: str, d_fim: str, caminho: str, progress, is_cancelled, date_reference="data_colheita"):
         progress(10, "Coletando dados do PDF simplificado...")
         with report_connection(db_path) as conn:
-            service = RelatorioDataService(conn)
+            service = RelatorioDataService(conn, date_reference)
             dados = service.coletar_dados_pdf_simplificado(d_ini, d_fim)
         if not dados:
             raise ValueError("Sem dados no periodo.")
@@ -567,10 +575,10 @@ class AbaRelatorios(RelatorioFormatacaoMixin, QtWidgets.QWidget):
         return caminho
 
     @classmethod
-    def _tarefa_pdf_fechamento(cls, db_path, d_ini: str, d_fim: str, caminho: str, progress, is_cancelled):
+    def _tarefa_pdf_fechamento(cls, db_path, d_ini: str, d_fim: str, caminho: str, progress, is_cancelled, date_reference="data_colheita"):
         progress(10, "Coletando dados do fechamento de safra...")
         with report_connection(db_path) as conn:
-            service = RelatorioDataService(conn)
+            service = RelatorioDataService(conn, date_reference)
             dados = service.coletar_dados_pdf_fechamento_safra(d_ini, d_fim)
         if not dados:
             raise ValueError("Sem dados no periodo.")
@@ -598,7 +606,7 @@ class AbaRelatorios(RelatorioFormatacaoMixin, QtWidgets.QWidget):
             return
 
         self._iniciar_tarefa(
-            BackgroundTask(self._tarefa_excel_fluxo, self.db, d_ini, d_fim, caminho),
+            BackgroundTask(self._tarefa_excel_fluxo, self.db, d_ini, d_fim, caminho, date_reference=self.cb_date_reference.currentData()),
             "Gerando Excel de fluxo...",
             self._on_arquivo_concluido,
         )
@@ -617,7 +625,7 @@ class AbaRelatorios(RelatorioFormatacaoMixin, QtWidgets.QWidget):
             return
 
         self._iniciar_tarefa(
-            BackgroundTask(self._tarefa_excel_bruto, self.db, d_ini, d_fim, caminho),
+            BackgroundTask(self._tarefa_excel_bruto, self.db, d_ini, d_fim, caminho, date_reference=self.cb_date_reference.currentData()),
             "Gerando Excel bruto...",
             self._on_arquivo_concluido,
         )
@@ -635,7 +643,7 @@ class AbaRelatorios(RelatorioFormatacaoMixin, QtWidgets.QWidget):
             return
 
         self._iniciar_tarefa(
-            BackgroundTask(self._tarefa_pdf_diario, self.db.path, d_ini, d_fim, caminho),
+            BackgroundTask(self._tarefa_pdf_diario, self.db.path, d_ini, d_fim, caminho, date_reference=self.cb_date_reference.currentData()),
             "Gerando PDF diario...",
             self._on_arquivo_concluido,
         )
@@ -653,7 +661,7 @@ class AbaRelatorios(RelatorioFormatacaoMixin, QtWidgets.QWidget):
             return
 
         self._iniciar_tarefa(
-            BackgroundTask(self._tarefa_pdf_geral, self.db.path, d_ini, d_fim, caminho),
+            BackgroundTask(self._tarefa_pdf_geral, self.db.path, d_ini, d_fim, caminho, date_reference=self.cb_date_reference.currentData()),
             "Gerando PDF analitico...",
             self._on_arquivo_concluido,
         )
@@ -671,7 +679,7 @@ class AbaRelatorios(RelatorioFormatacaoMixin, QtWidgets.QWidget):
             return
 
         self._iniciar_tarefa(
-            BackgroundTask(self._tarefa_pdf_mudas, self.db.path, d_ini, d_fim, caminho),
+            BackgroundTask(self._tarefa_pdf_mudas, self.db.path, d_ini, d_fim, caminho, date_reference=self.cb_date_reference.currentData()),
             "Gerando PDF historico de mudas...",
             self._on_arquivo_concluido,
         )
@@ -689,7 +697,7 @@ class AbaRelatorios(RelatorioFormatacaoMixin, QtWidgets.QWidget):
             return
 
         self._iniciar_tarefa(
-            BackgroundTask(self._tarefa_pdf_simplificado, self.db.path, d_ini, d_fim, caminho),
+            BackgroundTask(self._tarefa_pdf_simplificado, self.db.path, d_ini, d_fim, caminho, date_reference=self.cb_date_reference.currentData()),
             "Gerando PDF simplificado...",
             self._on_arquivo_concluido,
         )
@@ -709,7 +717,7 @@ class AbaRelatorios(RelatorioFormatacaoMixin, QtWidgets.QWidget):
             return
 
         self._iniciar_tarefa(
-            BackgroundTask(self._tarefa_pdf_fechamento, self.db.path, d_ini, d_fim, caminho),
+            BackgroundTask(self._tarefa_pdf_fechamento, self.db.path, d_ini, d_fim, caminho, date_reference=self.cb_date_reference.currentData()),
             "Gerando PDF final de safra...",
             self._on_arquivo_concluido,
         )

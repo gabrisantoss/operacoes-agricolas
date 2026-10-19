@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from date_reference import date_column
+
 import json
 import hashlib
 import os
@@ -1200,9 +1202,11 @@ class DB:
         self,
         data_inicio: str | None = None,
         data_fim: str | None = None,
-        numero_prefixo: str | None = None
+        numero_prefixo: str | None = None,
+        date_reference: str = "data_colheita"
     ) -> list[sqlite3.Row]:
-        sql = """
+        reference = date_column(date_reference)
+        sql = f"""
             SELECT numero, motorista_cod, motorista_nome, caminhao, operador_cod,
                    operador_nome, colhedora, faz_muda_cod, faz_muda_nome, talhao,
                    faz_plantio_cod, faz_plantio_nome, variedade_nome, data_colheita,
@@ -1213,7 +1217,7 @@ class DB:
         params: list[str] = []
 
         if data_inicio and data_fim:
-            filtros.append("data_colheita BETWEEN ? AND ?")
+            filtros.append(f"{reference} BETWEEN ? AND ?")
             params.extend((data_inicio, data_fim))
         if numero_prefixo:
             prefixo = str(numero_prefixo).strip()
@@ -1250,25 +1254,28 @@ class DB:
         )
         return int(row["total"] if row else 0)
 
-    def contar_notas_periodo(self, d_ini: str, d_fim: str) -> int:
+    def contar_notas_periodo(self, d_ini: str, d_fim: str, date_reference: str = "data_colheita") -> int:
+        reference = date_column(date_reference)
         row = self._fetchone(
-            "SELECT COUNT(*) AS total FROM notas WHERE data_colheita BETWEEN ? AND ?",
+            f"SELECT COUNT(*) AS total FROM notas WHERE {reference} BETWEEN ? AND ?",
             (d_ini, d_fim)
         )
         return int(row["total"] if row else 0)
 
-    def contar_dias_ativos_periodo(self, d_ini: str, d_fim: str) -> int:
+    def contar_dias_ativos_periodo(self, d_ini: str, d_fim: str, date_reference: str = "data_colheita") -> int:
+        reference = date_column(date_reference)
         row = self._fetchone(
-            """
-            SELECT COUNT(DISTINCT data_colheita) AS total
+            f"""
+            SELECT COUNT(DISTINCT {reference}) AS total
             FROM notas
-            WHERE data_colheita BETWEEN ? AND ?
+            WHERE {reference} BETWEEN ? AND ?
             """,
             (d_ini, d_fim)
         )
         return int(row["total"] if row else 0)
 
-    def top_por_coluna(self, coluna: str, d_ini: str, d_fim: str, limit: int = 5) -> list:
+    def top_por_coluna(self, coluna: str, d_ini: str, d_fim: str, limit: int = 5, date_reference: str = "data_colheita") -> list:
+        reference = date_column(date_reference)
         allowed_cols = {
             "motorista_nome",
             "operador_nome",
@@ -1290,7 +1297,7 @@ class DB:
                 f"""
                 SELECT {codigo_col} AS codigo, {coluna} AS nome
                 FROM notas
-                WHERE data_colheita BETWEEN ? AND ?
+                WHERE {reference} BETWEEN ? AND ?
                   AND (
                     ({coluna} IS NOT NULL AND TRIM({coluna}) <> '')
                     OR ({codigo_col} IS NOT NULL AND TRIM({codigo_col}) <> '')
@@ -1332,7 +1339,7 @@ class DB:
             f"""
             SELECT {coluna} AS nome, COUNT(*) AS qtd
             FROM notas
-            WHERE data_colheita BETWEEN ? AND ?
+            WHERE {reference} BETWEEN ? AND ?
               AND {coluna} IS NOT NULL
               AND TRIM({coluna}) <> ''
             GROUP BY {coluna}
@@ -1369,25 +1376,27 @@ class DB:
         finally:
             conn.close()
 
-    def dataframe_historico(self, data_inicio: str | None = None, data_fim: str | None = None):
+    def dataframe_historico(self, data_inicio: str | None = None, data_fim: str | None = None, date_reference: str = "data_colheita"):
+        reference = date_column(date_reference)
         sql = "SELECT * FROM notas"
         params: tuple[str, str] | tuple[()] = ()
         if data_inicio and data_fim:
-            sql += " WHERE data_colheita BETWEEN ? AND ?"
+            sql += f" WHERE {reference} BETWEEN ? AND ?"
             params = (data_inicio, data_fim)
         sql += " ORDER BY numero DESC"
         return self.dataframe_por_query(sql, params)
 
-    def dataframe_fluxo(self, d_ini: str, d_fim: str):
+    def dataframe_fluxo(self, d_ini: str, d_fim: str, date_reference: str = "data_colheita"):
+        reference = date_column(date_reference)
         return self.dataframe_por_query(
-            """
-            SELECT data_colheita AS Data, faz_muda_nome AS Origem,
+            f"""
+            SELECT {reference} AS Data, faz_muda_nome AS Origem,
                    talhao AS "Talhao de origem", variedade_nome AS Variedade,
                    faz_plantio_nome AS Destino, COUNT(*) AS Qtd
             FROM notas
-            WHERE data_colheita BETWEEN ? AND ?
-            GROUP BY data_colheita, faz_muda_nome, talhao, variedade_nome, faz_plantio_nome
-            ORDER BY data_colheita
+            WHERE {reference} BETWEEN ? AND ?
+            GROUP BY {reference}, faz_muda_nome, talhao, variedade_nome, faz_plantio_nome
+            ORDER BY {reference}
             """,
             (d_ini, d_fim)
         )

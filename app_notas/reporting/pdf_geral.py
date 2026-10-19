@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from date_reference import date_label
+
 from .base import PDFRelatorio, RelatorioFormatacaoMixin, formatar_periodo_br
 
 
@@ -9,6 +11,7 @@ class RelatorioPdfGeralBuilder(RelatorioFormatacaoMixin):
             return None
 
         pdf = PDFRelatorio(
+            date_reference_label=date_label(dados.get("date_reference", "data_colheita")),
             titulo="RELATORIO ANALITICO DE FLUXO",
             periodo=formatar_periodo_br(d_ini, d_fim),
             total_viagens=dados["total_geral"],

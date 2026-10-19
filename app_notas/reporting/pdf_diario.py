@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from date_reference import date_label
+
 from .base import PDFRelatorio, RelatorioFormatacaoMixin
 
 
@@ -10,6 +12,7 @@ class RelatorioPdfDiarioBuilder(RelatorioFormatacaoMixin):
 
         periodo = self._periodo_diario(dados["linhas"])
         pdf = PDFRelatorio(
+            date_reference_label=date_label(dados.get("date_reference", "data_colheita")),
             titulo="RELATORIO DIARIO DE PLANTIO",
             periodo=periodo,
             total_viagens=dados["total_geral"],
