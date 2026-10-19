@@ -75,7 +75,7 @@ Nenhum serviço do Windows, tarefa agendada ou regra de firewall é instalado. P
 ## Roteiro para conhecer a aplicação
 
 1. Entre no portal e abra **Colheita e Balança → Safra**. Compare propriedades, talhões e volume conferido.
-2. Explore **Ordens de Serviço** e os vínculos entre fazenda, talhões e frentes.
+2. Explore **Ordens de Serviço** e os vínculos entre fazenda, talhões e frentes. Em **Importar OS**, importe as planilhas demonstrativas que o `setup` gera em `demo-data/` (exportação do sistema oficial; nada é enviado de volta) e confira a prévia, as divergências e o histórico ([detalhes](docs/IMPORTACAO_OS.md)).
 3. Consulte divergências de pesagem e a base de frotas. Em **Colheita e Balança → Relatórios**, gere o relatório geral ou detalhado de safra por fazenda, talhão e período, confira a prévia e exporte o PDF.
 4. Em **Notas e Transporte**, consulte o histórico e o BI. Cadastros de fazendas/talhões e referências de colaboradores são integrados.
 5. Em **Colaboradores**, veja as situações fictícias de CNH e os filtros da fila de acompanhamento.

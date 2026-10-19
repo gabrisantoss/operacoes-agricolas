@@ -37,6 +37,7 @@ type OrderRow = {
   status: "ACTIVE" | "CLOSED";
   start_date: string | null;
   end_date: string | null;
+  origin?: string | null;
 };
 
 type OrderFieldRow = {
@@ -71,7 +72,7 @@ export class OrdersRepository {
     const orders = this.db
       .prepare(
         `
-        SELECT ho.id, ho.number, ho.front_number, ho.farm_id, ho.status, ho.start_date, ho.end_date
+        SELECT ho.id, ho.number, ho.front_number, ho.farm_id, ho.status, ho.start_date, ho.end_date, ho.origin
         FROM harvest_orders ho
         ORDER BY COALESCE(ho.end_date, ho.created_at) DESC
         `
@@ -85,7 +86,7 @@ export class OrdersRepository {
     const orders = this.db
       .prepare(
         `
-        SELECT ho.id, ho.number, ho.front_number, ho.farm_id, ho.status, ho.start_date, ho.end_date
+        SELECT ho.id, ho.number, ho.front_number, ho.farm_id, ho.status, ho.start_date, ho.end_date, ho.origin
         FROM harvest_orders ho
         WHERE EXTRACT(YEAR FROM COALESCE(ho.start_date, ho.created_at)) = ?
         ORDER BY COALESCE(ho.end_date, ho.created_at) DESC
@@ -115,7 +116,7 @@ export class OrdersRepository {
     const rows = this.db
       .prepare(
         `
-        SELECT ho.id, ho.number, ho.front_number, ho.farm_id, ho.status, ho.start_date, ho.end_date
+        SELECT ho.id, ho.number, ho.front_number, ho.farm_id, ho.status, ho.start_date, ho.end_date, ho.origin
         FROM harvest_orders ho
         WHERE lower(trim(ho.number)) = ?
         ORDER BY COALESCE(ho.end_date, ho.created_at) DESC
@@ -130,7 +131,7 @@ export class OrdersRepository {
     const rows = this.db
       .prepare(
         `
-        SELECT ho.id, ho.number, ho.front_number, ho.farm_id, ho.status, ho.start_date, ho.end_date
+        SELECT ho.id, ho.number, ho.front_number, ho.farm_id, ho.status, ho.start_date, ho.end_date, ho.origin
         FROM harvest_orders ho
         WHERE ho.id = ?
         LIMIT 1
@@ -160,15 +161,17 @@ export class OrdersRepository {
     return updatedOrderId ? this.findOrderById(updatedOrderId) : null;
   }
 
-  /** Applies a fully validated import plan in one database transaction. */
-  applyImportActions(actions: OrderImportAction[]) {
+  /** Applies a fully validated import plan in one database transaction; `recordImport` runs in the same one. */
+  applyImportActions(actions: OrderImportAction[], recordImport?: () => void) {
     const apply = this.db.transaction(() => {
       this.assertImportPreconditions(actions);
-      return actions.map((action) =>
+      const orderIds = actions.map((action) =>
         action.type === "CREATE"
           ? this.insertOrder(action.input)
           : this.updateOrderWithinTransaction(action.orderId, action.input)
       );
+      recordImport?.();
+      return orderIds;
     });
 
     const orderIds = apply();
@@ -610,6 +613,7 @@ export class OrdersRepository {
         status: order.status,
         startDate: order.start_date,
         endDate: order.end_date,
+        origin: order.origin ?? "MANUAL",
         farm: primaryFarm,
         farms: orderFarms,
         fields

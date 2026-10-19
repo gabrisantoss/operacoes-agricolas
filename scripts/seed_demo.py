@@ -164,6 +164,51 @@ def analytics(conn):
                    produtividade=round(70+RNG.random()*20,2), viagens=16+day%8)
 
 
+# Demonstrative exports of harvest orders. The official system's real layout is not documented here: these files
+# use only the three columns accepted by the public importer, and every value refers to the fictional scenario.
+ORDER_EXPORTS = {
+    "os-exportacao-demonstrativa-1.xlsx": [
+        *[("90001", "100-901", str(j)) for j in range(1, 5)],
+        *[("90002", "100-902", str(j)) for j in range(1, 4)],  # sector 4 missing: reported, kept
+        *[("90007", "200-907", str(j)) for j in range(1, 5)],  # closed order: kept as is
+        ("90011", "200-907", "1"), ("90011", "200-907", "2"),  # new harvest cycle on closed sectors: created
+        ("90012", "100-903", "1"),  # sector already in active order 90003: reported, not moved
+    ],
+    "os-exportacao-demonstrativa-2.xlsx": [
+        *[("90001", "100-901", str(j)) for j in range(1, 5)],
+        *[("90002", "100-902", str(j)) for j in range(1, 4)],
+        ("90011", "200-907", "1"), ("90011", "200-907", "2"), ("90011", "200-907", "3"),  # sector added: updated
+    ],
+    "os-exportacao-demonstrativa-inconsistente.xlsx": [
+        ("90013", "300-999", "1"),  # property not registered: blocks the import
+        ("90013", "100-904", "9"),  # sector not registered: blocks the import
+    ],
+}
+
+
+def order_spreadsheets(target):
+    from openpyxl import Workbook
+    for name, rows in ORDER_EXPORTS.items():
+        path = target / name
+        if path.exists():
+            continue
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "OS demonstrativa"
+        ws.append(["Codigo da OS", "Propriedade", "Setor", "Observacao"])
+        for row in rows:
+            ws.append([*row, "Exemplo ficticio"])
+        notes = wb.create_sheet("LEIA-ME")
+        for line in [
+            "Planilha DEMONSTRATIVA com dados inteiramente ficticios.",
+            "Representa uma exportacao de OS do sistema oficial para importacao gerencial no Balanca Audit.",
+            "Nao reproduz o layout real do sistema oficial: usa apenas as colunas aceitas pelo importador publico",
+            "(Codigo da OS, Propriedade, Setor). Colunas adicionais sao ignoradas.",
+        ]:
+            notes.append([line])
+        wb.save(path)
+
+
 def fixture():
     # A small import file generated only from explicit synthetic constants.
     target = ROOT / "demo-data"
@@ -175,6 +220,7 @@ def fixture():
             writer.writerow(["ticket", "data", "fazenda", "talhao", "os", "placa", "peso_bruto", "peso_liquido"])
             for i in range(1,7):
                 writer.writerow([f"EXEMPLO-{i}",TODAY.strftime("%d/%m/%Y"),"100-901",str(i%4+1),"90001",f"DEMO-{i:03d}","43,500","31,500"])
+    order_spreadsheets(target)
     # Fleet workbook is a technical input fixture for the retained Excel parser.
     from openpyxl import Workbook
     from openpyxl.styles import PatternFill

@@ -5,6 +5,8 @@ import { db } from "../db.js";
 import { badRequest } from "../errors.js";
 import { FarmsRepository } from "../repositories/farmsRepository.js";
 import { OrderImportConflictError, OrdersRepository } from "../repositories/ordersRepository.js";
+import { OrderImportHistoryRepository, isDuplicateOrderImportFileError } from "../repositories/orderImportHistoryRepository.js";
+import { toSemicolonCsv } from "./csvExport.js";
 import {
   buildOrderImportPlan,
   type OrderImportPlan,
@@ -17,10 +19,10 @@ const SHA256_PATTERN = /^[a-f0-9]{64}$/i;
 
 export async function previewOrderImport(filePath: string, fileName: string): Promise<OrderImportPreview> {
   const { rows, fileHash } = await readOrderImportFile(filePath);
-  return publicPreview(buildOrderImportPlan(rows, snapshotImportState(), fileName, fileHash));
+  return publicPreview(buildOrderImportPlan(rows, snapshotImportState(fileHash), fileName, fileHash));
 }
 
-export async function commitOrderImport(filePath: string, fileName: string, expectedFileHash: string) {
+export async function commitOrderImport(filePath: string, fileName: string, expectedFileHash: string, importedById: string | null = null) {
   if (!SHA256_PATTERN.test(expectedFileHash)) {
     throw badRequest("Gere a previa deste arquivo antes de confirmar a importacao.");
   }
@@ -30,17 +32,26 @@ export async function commitOrderImport(filePath: string, fileName: string, expe
     throw badRequest("O arquivo enviado mudou depois da previa. Gere uma nova previa e confirme novamente.");
   }
 
-  const plan = buildOrderImportPlan(rows, snapshotImportState(), fileName, fileHash);
+  const plan = buildOrderImportPlan(rows, snapshotImportState(fileHash), fileName, fileHash);
+  if (plan.previousImport) {
+    throw badRequest(duplicateFileMessage(plan.previousImport));
+  }
   if (plan.summary.errorsCount > 0) {
     throw badRequest(
       `Importacao bloqueada: a previa contem ${plan.summary.errorsCount} erro(s). ${plan.errors[0] ?? "Corrija a planilha."}`
     );
   }
 
+  // Orders and the import record are written together; divergences are recorded, never applied.
+  let importId = "";
   try {
-    const orders = new OrdersRepository(db).applyImportActions(plan.actions);
+    const history = new OrderImportHistoryRepository(db);
+    const orders = new OrdersRepository(db).applyImportActions(plan.actions, () => {
+      importId = history.insert(publicPreview(plan), importedById);
+    });
     return {
       ...publicPreview(plan),
+      importId,
       committedCount: orders.length,
       orders
     };
@@ -48,8 +59,49 @@ export async function commitOrderImport(filePath: string, fileName: string, expe
     if (error instanceof OrderImportConflictError) {
       throw badRequest("As OS mudaram depois da previa. Gere uma nova previa antes de confirmar a importacao.");
     }
+    if (isDuplicateOrderImportFileError(error)) {
+      throw badRequest("Este arquivo acabou de ser importado por outra sessao; nenhuma alteracao foi aplicada.");
+    }
     throw error;
   }
+}
+
+export function listOrderImports(limit?: number) {
+  return new OrderImportHistoryRepository(db).list(limit);
+}
+
+export function findOrderImport(id: string) {
+  const batch = new OrderImportHistoryRepository(db).find(id);
+  if (!batch) {
+    throw badRequest("Importacao de OS nao encontrada.");
+  }
+  return batch;
+}
+
+export function orderImportReportCsv(id: string) {
+  const batch = findOrderImport(id);
+  const rows: unknown[][] = [
+    ["Arquivo", "Importado em", "Linha", "Codigo da OS", "Propriedade", "Setor", "Resultado", "Detalhe"]
+  ];
+  for (const item of batch.items) {
+    rows.push([batch.fileName, batch.importedAt, item.rowNumber, item.orderNumber, item.farmReference, item.fieldReference, statusLabels[item.status], item.message]);
+  }
+  for (const divergence of batch.divergences.filter((item) => item.rowNumber === null)) {
+    rows.push([batch.fileName, batch.importedAt, "", divergence.orderNumber, divergence.farmName, divergence.fieldCode, statusLabels.DIVERGENCE, divergence.message]);
+  }
+  return toSemicolonCsv(rows);
+}
+
+const statusLabels: Record<OrderImportPreview["items"][number]["status"], string> = {
+  CREATE: "OS criada",
+  UPDATE: "Setor adicionado",
+  SKIP: "Sem alteracao",
+  DIVERGENCE: "Divergencia (nao aplicada)",
+  ERROR: "Erro"
+};
+
+function duplicateFileMessage(previous: NonNullable<OrderImportPreview["previousImport"]>) {
+  return `Este arquivo ja foi importado em ${new Date(previous.importedAt).toLocaleString("pt-BR")} como '${previous.fileName}'; nenhuma alteracao foi aplicada.`;
 }
 
 async function readOrderImportFile(filePath: string) {
@@ -108,10 +160,12 @@ async function readOrderImportFile(filePath: string) {
   return { rows, fileHash };
 }
 
-function snapshotImportState() {
+function snapshotImportState(fileHash: string) {
+  const previous = new OrderImportHistoryRepository(db).findByFileHash(fileHash);
   return {
     farms: new FarmsRepository(db).listFarms(),
-    orders: new OrdersRepository(db).listOrders()
+    orders: new OrdersRepository(db).listOrders(),
+    previousImport: previous ? { fileName: previous.fileName, importedAt: previous.importedAt } : null
   };
 }
 

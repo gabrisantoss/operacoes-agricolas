@@ -90,6 +90,22 @@ CREATE TABLE IF NOT EXISTS harvest_order_history (
   occurred_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS order_import_batches (
+  id text PRIMARY KEY,
+  file_name text NOT NULL,
+  file_hash text NOT NULL,
+  source_label text NOT NULL DEFAULT 'EXCEL',
+  imported_by_id text REFERENCES users(id),
+  imported_at timestamptz NOT NULL DEFAULT now(),
+  row_count integer NOT NULL DEFAULT 0,
+  create_count integer NOT NULL DEFAULT 0,
+  update_count integer NOT NULL DEFAULT 0,
+  skipped_count integer NOT NULL DEFAULT 0,
+  divergence_count integer NOT NULL DEFAULT 0,
+  items_json jsonb NOT NULL DEFAULT '[]'::jsonb,
+  divergences_json jsonb NOT NULL DEFAULT '[]'::jsonb
+);
+
 CREATE TABLE IF NOT EXISTS post_harvest_integration_events (
   id text PRIMARY KEY,
   event_id text NOT NULL UNIQUE,
@@ -203,6 +219,8 @@ CREATE INDEX IF NOT EXISTS idx_fields_farm_code ON fields(farm_id, code);
 CREATE INDEX IF NOT EXISTS idx_fields_code ON fields(code);
 CREATE INDEX IF NOT EXISTS idx_harvest_orders_number ON harvest_orders(number);
 CREATE INDEX IF NOT EXISTS idx_harvest_orders_status ON harvest_orders(status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_order_import_batches_file_hash ON order_import_batches(file_hash);
+CREATE INDEX IF NOT EXISTS idx_order_import_batches_imported_at ON order_import_batches(imported_at DESC);
 CREATE INDEX IF NOT EXISTS idx_harvest_orders_farm_id ON harvest_orders(farm_id);
 CREATE INDEX IF NOT EXISTS idx_harvest_order_fronts_front_number ON harvest_order_fronts(front_number);
 CREATE INDEX IF NOT EXISTS idx_harvest_order_fields_order_id ON harvest_order_fields(order_id);

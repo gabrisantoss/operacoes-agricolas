@@ -87,6 +87,8 @@ export type HarvestOrder = {
   status: "ACTIVE" | "CLOSED";
   startDate?: string | null;
   endDate?: string | null;
+  // MANUAL, EXCEL (imported from the official system's spreadsheet) or DEMO_FICTICIA.
+  origin?: string;
   farm: Farm;
   farms: Farm[];
   fields: Array<{

@@ -19,7 +19,7 @@ import {
   updateOrder
 } from "../db.js";
 import { reconcileRetroactiveEntriesForOrder } from "../services/importer.js";
-import { commitOrderImport, previewOrderImport } from "../services/orderImport.js";
+import { commitOrderImport, findOrderImport, listOrderImports, orderImportReportCsv, previewOrderImport } from "../services/orderImport.js";
 import { assertUploadedFile } from "../services/uploadValidation.js";
 import { paginateList, readPagination } from "../httpPagination.js";
 import { requireRoles } from "../middleware/requireAuth.js";
@@ -64,10 +64,27 @@ ordersRouter.post("/import-excel", manageOrdersOnly, upload.single("file"), asyn
   try {
     await assertUploadedFile(req.file, [".xlsx"], "Envie uma planilha XLSX valida.");
     const previewHash = typeof req.body?.previewHash === "string" ? req.body.previewHash.trim() : "";
-    return res.json(await commitOrderImport(req.file.path, req.file.originalname, previewHash));
+    return res.json(await commitOrderImport(req.file.path, req.file.originalname, previewHash, req.user?.id ?? null));
   } finally {
     await fs.unlink(req.file.path).catch(() => undefined);
   }
+});
+
+// History of spreadsheets exported from the official system: consultation only, nothing is sent back.
+ordersRouter.get("/import-excel/history", (req, res) => {
+  const limit = typeof req.query.limit === "string" ? Number(req.query.limit) : 50;
+  return res.json({ imports: listOrderImports(Number.isFinite(limit) ? limit : 50) });
+});
+
+ordersRouter.get("/import-excel/history/:importId", (req, res) => {
+  return res.json(findOrderImport(req.params.importId));
+});
+
+ordersRouter.get("/import-excel/history/:importId/report.csv", (req, res) => {
+  const csv = orderImportReportCsv(req.params.importId);
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", 'attachment; filename="importacao-os.csv"');
+  return res.send(`﻿${csv}`);
 });
 
 ordersRouter.get("/", async (req, res) => {

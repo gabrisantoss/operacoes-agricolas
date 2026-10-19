@@ -14,6 +14,7 @@ test("order import groups multiple valid sectors into one atomic create action",
     createCount: 1,
     updateCount: 0,
     skippedCount: 0,
+    divergenceCount: 0,
     errorsCount: 0
   });
   assert.equal(plan.actions[0]?.type, "CREATE");
@@ -46,17 +47,76 @@ test("order import preserves existing fields and plans one guarded update", () =
   }
 });
 
-test("order import rejects closed orders and inactive sectors", () => {
+test("order import keeps closed orders untouched and still rejects inactive sectors", () => {
   const farm = makeFarm();
-  farm.fields[1]!.active = false;
+  farm.fields.push({ id: "field-3", code: "03", farmId: "farm-1", active: false });
   const closedOrder = { ...makeOrder(farm, ["field-1"]), status: "CLOSED" as const };
-  const rows = [row(2, "25001", "1234", "01"), row(3, "25002", "1234", "02")];
+  const rows = [row(2, "25001", "1234", "01"), row(3, "25001", "1234", "02"), row(4, "25002", "1234", "03")];
   const plan = buildOrderImportPlan(rows, { farms: [farm], orders: [closedOrder] });
 
   assert.equal(plan.actions.length, 0);
-  assert.equal(plan.summary.errorsCount, 2);
-  assert.ok(plan.errors.some((message) => /esta fechada/i.test(message)));
+  assert.equal(plan.items[0]!.status, "SKIP");
+  assert.match(plan.items[0]!.message, /encerrada no Balanca; sem alteracao/);
+  assert.equal(plan.items[1]!.status, "DIVERGENCE");
+  assert.equal(plan.divergences[0]!.kind, "CLOSED_ORDER_NEW_FIELD");
+  assert.equal(plan.summary.errorsCount, 1);
   assert.ok(plan.errors.some((message) => /esta inativo/i.test(message)));
+});
+
+test("a sector already in another active order is reported, not moved", () => {
+  const farm = makeFarm();
+  const otherOrder = { ...makeOrder(farm, ["field-2"]), id: "order-9", number: "25009" };
+  const rows = [row(2, "25001", "1234", "01"), row(3, "25001", "1234", "02")];
+  const plan = buildOrderImportPlan(rows, { farms: [farm], orders: [otherOrder] });
+
+  assert.equal(plan.summary.errorsCount, 0);
+  assert.equal(plan.summary.divergenceCount, 1);
+  assert.equal(plan.divergences[0]!.kind, "FIELD_IN_OTHER_ACTIVE_ORDER");
+  assert.match(plan.divergences[0]!.message, /OS ativa 25009/);
+  assert.equal(plan.actions.length, 1);
+  assert.deepEqual(plan.actions[0]?.type === "CREATE" ? plan.actions[0].input.fieldIds : [], ["field-1"]);
+});
+
+test("sectors missing from a later export are reported and kept", () => {
+  const farm = makeFarm();
+  const existingOrder = makeOrder(farm, ["field-1", "field-2"]);
+  const plan = buildOrderImportPlan([row(2, "25001", "1234", "01")], { farms: [farm], orders: [existingOrder] });
+
+  assert.equal(plan.actions.length, 0);
+  assert.equal(plan.summary.skippedCount, 1);
+  assert.deepEqual(plan.divergences.map(({ kind, rowNumber, fieldCode }) => ({ kind, rowNumber, fieldCode })), [
+    { kind: "FIELD_MISSING_FROM_SHEET", rowNumber: null, fieldCode: "02" }
+  ]);
+  assert.match(plan.divergences[0]!.message, /sem remocao automatica/);
+});
+
+test("the same sector under two orders of one spreadsheet is not applied", () => {
+  const farm = makeFarm();
+  const rows = [row(2, "25001", "1234", "01"), row(3, "25002", "1234", "01"), row(4, "25002", "1234", "02")];
+  const plan = buildOrderImportPlan(rows, { farms: [farm], orders: [] });
+
+  assert.equal(plan.divergences.filter((item) => item.kind === "FIELD_IN_TWO_SHEET_ORDERS").length, 2);
+  assert.equal(plan.actions.length, 1);
+  assert.deepEqual(plan.actions[0]?.type === "CREATE" ? plan.actions[0].input.fieldIds : [], ["field-2"]);
+});
+
+test("a closed order listed with a new cycle on the same sectors is not a conflict", () => {
+  const farm = makeFarm();
+  const closedOrder = { ...makeOrder(farm, ["field-1", "field-2"]), status: "CLOSED" as const };
+  const rows = [row(2, "25001", "1234", "01"), row(3, "25001", "1234", "02"), row(4, "25010", "1234", "01")];
+  const plan = buildOrderImportPlan(rows, { farms: [farm], orders: [closedOrder] });
+
+  assert.equal(plan.summary.divergenceCount, 0);
+  assert.equal(plan.summary.skippedCount, 2);
+  assert.equal(plan.summary.createCount, 1);
+  assert.deepEqual(plan.actions[0]?.type === "CREATE" ? plan.actions[0].input.fieldIds : [], ["field-1"]);
+});
+
+test("a re-imported file is flagged with its previous import", () => {
+  const previousImport = { fileName: "os-exportacao-15-10.xlsx", importedAt: "2026-10-15T12:00:00.000Z" };
+  const plan = buildOrderImportPlan([row(2, "25001", "1234", "01")], { farms: [makeFarm()], orders: [], previousImport });
+
+  assert.deepEqual(plan.previousImport, previousImport);
 });
 
 function row(rowNumber: number, orderNumber: string, farmReference: string, fieldReference: string): OrderImportSourceRow {

@@ -41,5 +41,17 @@ class SeedDemoConsistencyTest(unittest.TestCase):
                 self.assertGreaterEqual(min(entries), order["start_date"])
 
 
+    def test_demonstrative_order_exports_reference_the_fictional_scenario(self) -> None:
+        farms = {row["id"]: row["code"] for row in self.rows["farms"]}
+        known = {(farms[row["farm_id"]], row["code"]) for row in self.rows["fields"]}
+
+        for name, rows in seed_demo.ORDER_EXPORTS.items():
+            unknown = [row for row in rows if (row[1], row[2]) not in known]
+            if name.endswith("inconsistente.xlsx"):
+                self.assertEqual(unknown, rows, "o arquivo inconsistente deve conter apenas cadastros inexistentes")
+            else:
+                self.assertEqual(unknown, [], f"{name} cita fazenda/setor fora do cenario ficticio")
+
+
 if __name__ == "__main__":
     unittest.main()

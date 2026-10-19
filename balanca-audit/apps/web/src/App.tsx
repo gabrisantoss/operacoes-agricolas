@@ -54,6 +54,7 @@ import {
 } from "./api";
 import { OperationalHealthPanel } from "./OperationalHealthPanel";
 import { CaneReportsView } from "./CaneReportsView";
+import { OrderExcelImportView } from "./OrderExcelImportView";
 
 
 
@@ -98,7 +99,8 @@ type View =
   | "imports"
   | "history"
   | "apportionment"
-  | "reports";
+  | "reports"
+  | "orderImport";
 const viewStorageKey = "oaDemo.activeView";
 const yearStorageKey = "oaDemo.selectedYear";
 const viewOptions: View[] = [
@@ -112,7 +114,8 @@ const viewOptions: View[] = [
   "imports",
   "history",
   "apportionment",
-  "reports"
+  "reports",
+  "orderImport"
 ];
 
 
@@ -548,7 +551,8 @@ export function App() {
     imports: "Validar colheita",
     history: "Histórico de análises",
     apportionment: "Rateio de OS",
-    reports: "Relatórios de safra"
+    reports: "Relatórios de safra",
+    orderImport: "Importar OS do sistema corporativo"
   }[view];
 
   return (
@@ -590,6 +594,7 @@ export function App() {
           <NavButton active={view === "orders"} icon={<CheckCircle2 />} label="Colheita atual" onClick={() => navigate("orders")} />
 
           <NavButton active={view === "orderClosure"} icon={<CheckCircle2 />} label="Encerrar OS" onClick={() => navigate("orderClosure")} />
+          <NavButton active={view === "orderImport"} icon={<FileSpreadsheet />} label="Importar OS" onClick={() => navigate("orderImport")} />
           <NavButton active={view === "integrations"} icon={<Share2 />} label="Integração" onClick={() => navigate("integrations")} />
           <NavButton active={view === "apportionment"} icon={<PieChart />} label="Rateio de OS" onClick={() => navigate("apportionment")} />
           <NavButton active={view === "reports"} icon={<FileText />} label="Relatórios" onClick={() => navigate("reports")} />
@@ -702,6 +707,9 @@ export function App() {
           <ApportionmentView token={token} yearQuerySuffix={yearQuerySuffix} />
         ) : null}
         {view === "reports" ? <CaneReportsView key={reportsReloadKey} token={token} setMessage={setMessage} /> : null}
+        {view === "orderImport" ? (
+          <OrderExcelImportView token={token} onImported={refreshOrdersAfterSave} setMessage={setMessage} />
+        ) : null}
         {view === "imports" ? (
           <ImportsView
             token={token}
