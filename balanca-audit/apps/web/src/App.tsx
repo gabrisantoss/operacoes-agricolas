@@ -55,6 +55,7 @@ import {
 import { OperationalHealthPanel } from "./OperationalHealthPanel";
 import { CaneReportsView } from "./CaneReportsView";
 import { OrderExcelImportView } from "./OrderExcelImportView";
+import { PdfOverlapNotice, pdfOverlapAllowsSave } from "./PdfOverlapNotice";
 
 
 
@@ -3817,6 +3818,7 @@ function PdfHarvestCheck({
 }) {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pdfPreview, setPdfPreview] = useState<PreviewImport | null>(null);
+  const [pdfOverlapReviewed, setPdfOverlapReviewed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<PdfProgressState | null>(null);
 
@@ -3859,6 +3861,7 @@ function PdfHarvestCheck({
         percent: 100
       });
       setPdfPreview(preview);
+      setPdfOverlapReviewed(false);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Falha ao conferir PDF.");
     } finally {
@@ -3886,6 +3889,9 @@ function PdfHarvestCheck({
     data.append("file", selectedFile);
     if (pdfPreview?.fileHash) {
       data.append("previewHash", pdfPreview.fileHash);
+    }
+    if (pdfOverlapReviewed && pdfPreview?.overlap?.reviewToken) {
+      data.append("overlapReviewToken", pdfPreview.overlap.reviewToken);
     }
 
     try {
@@ -3966,7 +3972,12 @@ function PdfHarvestCheck({
           </button>
         ) : null}
         {showInsertButton ? (
-          <button className="primaryButton" type="button" onClick={() => upload("/imports")} disabled={busy || !pdfFile}>
+          <button
+            className="primaryButton"
+            type="button"
+            onClick={() => upload("/imports")}
+            disabled={busy || !pdfFile || !pdfOverlapAllowsSave(pdfPreview?.overlap, pdfOverlapReviewed)}
+          >
             <Database size={18} />
             Inserir dados
           </button>
@@ -3975,6 +3986,7 @@ function PdfHarvestCheck({
 
       {pdfPreview ? (
         <div className="pdfCheckPreview">
+          <PdfOverlapNotice overlap={pdfPreview.overlap} reviewed={pdfOverlapReviewed} onReviewedChange={setPdfOverlapReviewed} />
           <section className="metricsGrid compactMetrics">
             <Metric label="Linhas" value={pdfPreview.summary.rowCount} />
             <Metric label="Corretas" value={pdfPreview.summary.okCount} tone="ok" />
@@ -5093,6 +5105,7 @@ function ImportsView({
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<PreviewImport | null>(null);
   const [mapping, setMapping] = useState<PreviewImport["mapping"]>({});
+  const [overlapReviewed, setOverlapReviewed] = useState(false);
 
   async function upload(path: string) {
     if (!file) {
@@ -5107,6 +5120,12 @@ function ImportsView({
     if (Object.values(mapping).some(Boolean)) {
       data.append("mapping", JSON.stringify(mapping));
     }
+    if (path === "/imports" && preview) {
+      data.append("previewHash", preview.fileHash);
+      if (overlapReviewed && preview.overlap?.reviewToken) {
+        data.append("overlapReviewToken", preview.overlap.reviewToken);
+      }
+    }
 
     try {
       const result = await apiRequest<PreviewImport | { batch: unknown }>(path, token, {
@@ -5118,6 +5137,7 @@ function ImportsView({
         const nextPreview = result as PreviewImport;
         setPreview(nextPreview);
         setMapping(nextPreview.mapping);
+        setOverlapReviewed(false);
       } else {
         setPreview(null);
         setFile(null);
@@ -5174,7 +5194,12 @@ function ImportsView({
             {preview ? "Atualizar prévia" : "Prévia"}
           </button>
           {preview ? (
-            <button className="primaryButton" type="button" onClick={() => upload("/imports")}>
+            <button
+              className="primaryButton"
+              type="button"
+              onClick={() => upload("/imports")}
+              disabled={!pdfOverlapAllowsSave(preview.overlap, overlapReviewed)}
+            >
               Salvar validação
             </button>
           ) : null}
@@ -5184,6 +5209,7 @@ function ImportsView({
       {preview ? (
         <section className="panel validationPreviewPanel">
           <h2>Prévia da validação</h2>
+          <PdfOverlapNotice overlap={preview.overlap} reviewed={overlapReviewed} onReviewedChange={setOverlapReviewed} />
           <section className="metricsGrid compactMetrics">
             <Metric label="Linhas" value={preview.summary.rowCount} />
             <Metric label="Corretas" value={preview.summary.okCount} tone="ok" />

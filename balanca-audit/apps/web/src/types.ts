@@ -364,9 +364,36 @@ export type HarvestExecutiveDashboard = {
   periods: ProductionPeriodRow[];
 };
 
+export type PdfOverlapAnalysis = {
+  status: "NONE" | "INFO" | "REVIEW_REQUIRED" | "BLOCKED";
+  newPeriod: { start: string; end: string };
+  reviewToken: string | null;
+  alerts: Array<{
+    kind: "IDENTICAL_FILE" | "SAME_PERIOD" | "PARTIAL_PERIOD_OVERLAP" | "PERIOD_OVERLAP_OTHER_FIELDS" | "COINCIDENT_RECORDS";
+    severity: "INFO" | "REVIEW_REQUIRED" | "BLOCKED";
+    batchId: string;
+    fileName: string;
+    importedAt: string;
+    existingPeriod: { start: string; end: string };
+    overlapPeriod: { start: string; end: string } | null;
+    fields: Array<{
+      farmCode: string;
+      farmName: string;
+      fieldCode: string;
+      existingNetWeight: number;
+      existingEntries: number;
+      newNetWeight: number;
+      newEntries: number;
+      sameTotals: boolean;
+    }>;
+    message: string;
+  }>;
+};
+
 export type PreviewImport = {
   sourceType: "SPREADSHEET" | "RELPESAG_PDF";
   fileHash: string;
+  overlap?: PdfOverlapAnalysis;
   columns: string[];
   mapping: ImportMappingInput;
   summary: {

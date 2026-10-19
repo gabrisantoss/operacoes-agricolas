@@ -180,6 +180,7 @@ def setup(skip_install=False):
     run([settings["node"], "dist/postgresMigrationApply.js"], cwd=ROOT / "balanca-audit/apps/api", env=environment(settings))
     run([python_exe(), ROOT / "scripts/seed_demo.py"], env=environment(settings))
     run([settings["node"], ROOT / "scripts/seed_integration.mjs"], cwd=ROOT / "balanca-audit/apps/api", env=environment(settings))
+    run([settings["node"], ROOT / "scripts/seed_pdf_samples.mjs"], cwd=ROOT / "balanca-audit/apps/api", env=environment(settings))
     print("Demonstracao preparada. Execute: python demo.py start", flush=True)
 
 

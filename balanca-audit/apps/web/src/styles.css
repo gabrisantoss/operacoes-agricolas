@@ -5542,3 +5542,8 @@ th,
 .portfolioNotice { padding: 8px 12px; border-radius: 8px; background: #e0ecdb; color: #194f35; font-size: 11px; font-weight: 700; letter-spacing: .05em; }
 .caneReportPreview h3 { margin: 18px 0 8px; }
 .caneReportPreview tr.totalRow td { font-weight: 700; background: #eef4ef; }
+.pdfOverlapNotice { display: grid; gap: 8px; margin: 12px 0; }
+.pdfOverlapNotice.blocked { border-color: #c0392b; }
+.pdfOverlapNotice p { margin: 0; }
+.pdfOverlapReview { display: flex; gap: 8px; align-items: flex-start; font-weight: 600; }
+.pdfOverlapReview input[type="checkbox"] { flex: 0 0 auto; width: 18px; height: 18px; min-height: 0; margin: 2px 0 0; padding: 0; }

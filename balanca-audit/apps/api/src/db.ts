@@ -1691,6 +1691,69 @@ export function findPdfImportBatchByPeriod(periodStart: Date, periodEnd: Date) {
   return row ? mapImportBatch(row) : null;
 }
 
+// Imported PDF summaries with their field totals, used to warn about overlapping or repeated reports.
+export function listImportedPdfBatchFields() {
+  const rows = db
+    .prepare(`
+      SELECT
+        b.id,
+        b.file_name,
+        b.imported_at,
+        CAST(COALESCE(b.period_start, b.report_date) AS TEXT) AS period_start,
+        CAST(COALESCE(b.period_end, b.period_start, b.report_date) AS TEXT) AS period_end,
+        COALESCE(farm.code, ce.farm_code_raw, ce.farm_name_raw, '') AS farm_code,
+        COALESCE(farm.name, ce.farm_name_raw, '') AS farm_name,
+        COALESCE(field.code, ce.field_code_raw, '') AS field_code,
+        COUNT(*) AS entry_count,
+        COALESCE(SUM(ce.net_weight), 0) AS net_weight
+      FROM import_batches b
+      JOIN cane_entries ce ON ce.batch_id = b.id
+      LEFT JOIN fields field ON field.id = ce.field_id
+      LEFT JOIN farms farm ON farm.id = COALESCE(ce.farm_id, field.farm_id)
+      WHERE (b.source_type = 'RELPESAG_PDF' OR lower(b.file_name) LIKE '%.pdf')
+        AND COALESCE(b.period_start, b.report_date) IS NOT NULL
+      GROUP BY 1, 2, 3, 4, 5, 6, 7, 8
+      ORDER BY b.imported_at DESC, b.id
+    `)
+    .all() as Array<{
+    id: string;
+    file_name: string;
+    imported_at: string | Date;
+    period_start: string;
+    period_end: string;
+    farm_code: string;
+    farm_name: string;
+    field_code: string;
+    entry_count: number | string;
+    net_weight: number | string;
+  }>;
+  const batches = new Map<
+    string,
+    { id: string; fileName: string; importedAt: string; periodStart: string; periodEnd: string; fields: Array<{ farmCode: string; farmName: string; fieldCode: string; netWeight: number; entryCount: number }> }
+  >();
+
+  for (const row of rows) {
+    const batch = batches.get(row.id) ?? {
+      id: row.id,
+      fileName: row.file_name,
+      importedAt: row.imported_at instanceof Date ? row.imported_at.toISOString() : String(row.imported_at),
+      periodStart: String(row.period_start).slice(0, 10),
+      periodEnd: String(row.period_end).slice(0, 10),
+      fields: []
+    };
+    batch.fields.push({
+      farmCode: row.farm_code,
+      farmName: row.farm_name,
+      fieldCode: row.field_code,
+      netWeight: Math.round(Number(row.net_weight) * 1000) / 1000,
+      entryCount: Number(row.entry_count)
+    });
+    batches.set(row.id, batch);
+  }
+
+  return [...batches.values()];
+}
+
 export function updateImportBatchFile(input: {
   id: string;
   storedFileName: string;

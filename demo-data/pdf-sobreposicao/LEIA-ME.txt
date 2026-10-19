@@ -1,0 +1,9 @@
+PDFs SINTETICOS no layout RELPESAG, com dados ficticios, gerados por demo.py setup
+(scripts/seed_pdf_samples.mjs) para demonstrar a analise de sobreposicao da importacao de PDF.
+
+01: primeira importacao legitima.
+02: arquivo identico ao 01 (bloqueado).
+03: periodo parcialmente sobreposto ao 01 com os mesmos talhoes (revisao obrigatoria).
+04: periodo sobreposto com outra fazenda (informado; importacao legitima).
+05: mesmo conteudo do 01 com outro periodo (revisao obrigatoria).
+06: outro PDF para exatamente o mesmo periodo do 01 (bloqueado pela regra existente).

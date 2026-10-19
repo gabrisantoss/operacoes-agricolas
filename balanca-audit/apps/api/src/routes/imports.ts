@@ -172,7 +172,12 @@ importsRouter.post("/", manageImportsOnly, upload.single("file"), async (req, re
     );
     const mapping = parseMapping(req.body.mapping);
     const expectedFileHash = readOptionalFileHash(req.body.previewHash);
-    const result = await commitImport(req.file.path, req.file.originalname, req.user?.id, { mapping, expectedFileHash });
+    const overlapReviewToken = typeof req.body.overlapReviewToken === "string" ? req.body.overlapReviewToken.trim() : undefined;
+    const result = await commitImport(req.file.path, req.file.originalname, req.user?.id, {
+      mapping,
+      expectedFileHash,
+      overlapReviewToken
+    });
     let batch = result.batch;
     let archivedFilePath: string | null = null;
 

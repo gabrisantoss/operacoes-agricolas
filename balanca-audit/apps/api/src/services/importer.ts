@@ -16,6 +16,7 @@ import {
   findActiveOrderForField,
   findImportBatchByFileHash,
   findPdfImportBatchByPeriod,
+  listImportedPdfBatchFields,
   findFarmByRaw,
   findFieldByFarmAndCode,
   listFarms,
@@ -41,6 +42,7 @@ import {
 import { CsvTableError, decodeCsvBuffer, parseCsvTable } from "./csvTable.js";
 import { detectMapping } from "./importColumnMapping.js";
 import { isDuplicateImportFileHashError } from "./importDeduplication.js";
+import { analyzePdfImportOverlap, fieldKey, summarizePdfFields, type PdfOverlapAnalysis } from "./pdfImportOverlap.js";
 import { summarizeUniqueHarvestAreaByDate } from "./harvestMetrics.js";
 
 const execFileAsync = promisify(execFile);
@@ -71,6 +73,7 @@ type DetectionResult = {
   summary: ImportPreviewSummary;
   metadata?: ImportBatchMetadata;
   fileHash: string;
+  overlap?: PdfOverlapAnalysis;
 };
 
 type CaneSummaryExtractionSource = "local" | "google-vision" | "gemini";
@@ -170,7 +173,7 @@ const previewRowsLimit = 200;
 
 export async function previewImport(filePath: string, fileName: string, options: ImportOptionsInput = {}): Promise<DetectionResult> {
   const [parsed, fileHash] = await Promise.all([readRows(filePath, fileName, options), calculateFileHash(filePath)]);
-  ensurePdfPeriodWasNotImported(parsed);
+  const overlap = analyzeParsedPdfOverlap(parsed, fileHash);
   const detectedMapping = parsed.mapping ?? detectMapping(parsed.columns, options.mapping);
   const classificationContext = createClassificationContext(parsed.sourceType);
   const classifiedRows = parsed.rows
@@ -185,7 +188,8 @@ export async function previewImport(filePath: string, fileName: string, options:
     rows: prioritizePreviewRows(classifiedRows).slice(0, previewRowsLimit),
     summary: summarizePreview(classifiedRows, parsed.metadata?.reconciliation),
     metadata: parsed.metadata,
-    fileHash
+    fileHash,
+    overlap
   };
 }
 
@@ -193,7 +197,7 @@ export async function commitImport(
   filePath: string,
   fileName: string,
   importedById?: string,
-  options: ImportOptionsInput & { expectedFileHash?: string } = {}
+  options: ImportOptionsInput & { expectedFileHash?: string; overlapReviewToken?: string } = {}
 ) {
   const fileHash = await calculateFileHash(filePath);
   const extension = path.extname(fileName).toLowerCase();
@@ -212,7 +216,9 @@ export async function commitImport(
 
   const parsed = await readRows(filePath, fileName, options);
   assertCaneSummaryReconciled(parsed);
-  ensurePdfPeriodWasNotImported(parsed);
+  const overlap = analyzeParsedPdfOverlap(parsed, fileHash);
+  assertPdfOverlapAllowsSave(overlap, options.overlapReviewToken);
+  const reviewedOverlapNotes = reviewedOverlapNotesByField(overlap);
   const detectedMapping = parsed.mapping ?? detectMapping(parsed.columns, options.mapping);
   const classificationContext = createClassificationContext(parsed.sourceType);
   const entries: CaneEntryImportInput[] = parsed.rows
@@ -220,7 +226,8 @@ export async function commitImport(
     .flatMap(unrollNormalizedRow)
     .map((row) => {
       const classified = classifyRow(row, parsed.sourceType, classificationContext);
-      const notes = buildEntryNotes(classified.notes, row.tripCount);
+      const reviewNote = reviewedOverlapNotes.get(fieldKey(row.farmCodeRaw ?? row.farmRaw ?? "", row.fieldRaw ?? ""));
+      const notes = [buildEntryNotes(classified.notes, row.tripCount), reviewNote].filter(Boolean).join(" ") || undefined;
 
       return {
         ticketNumber: row.ticketNumber,
@@ -274,9 +281,11 @@ export async function commitImport(
   };
 }
 
-function ensurePdfPeriodWasNotImported(parsed: ParsedRows) {
+// Identical file and same period stay blocked (existing rules); partial overlaps and coincident content
+// require an explicit review; overlaps with other fields are legitimate and only informed.
+function analyzeParsedPdfOverlap(parsed: ParsedRows, fileHash: string): PdfOverlapAnalysis | undefined {
   if (parsed.sourceType !== "RELPESAG_PDF") {
-    return;
+    return undefined;
   }
 
   const periodStart = parsed.metadata?.periodStart;
@@ -286,17 +295,48 @@ function ensurePdfPeriodWasNotImported(parsed: ParsedRows) {
     throw badRequest("Nao foi possivel identificar o PERIODO do PDF. Confira o arquivo antes de inserir os dados.");
   }
 
-  const existingBatch = findPdfImportBatchByPeriod(periodStart, periodEnd);
+  const identical = findImportBatchByFileHash(fileHash);
+  return analyzePdfImportOverlap({
+    fileHash,
+    periodStart: periodStart.toISOString().slice(0, 10),
+    periodEnd: periodEnd.toISOString().slice(0, 10),
+    fields: summarizePdfFields(parsed.rows.flatMap((row) => unrollNormalizedRow(normalizeRow(row, parsed.mapping ?? {})))),
+    identicalFile: identical
+      ? {
+          id: identical.id,
+          fileName: identical.fileName,
+          importedAt: identical.importedAt,
+          periodStart: String(identical.periodStart ?? identical.reportDate ?? "").slice(0, 10),
+          periodEnd: String(identical.periodEnd ?? identical.periodStart ?? identical.reportDate ?? "").slice(0, 10)
+        }
+      : null,
+    importedBatches: listImportedPdfBatchFields()
+  });
+}
 
-  if (!existingBatch) {
-    return;
+function assertPdfOverlapAllowsSave(overlap: PdfOverlapAnalysis | undefined, reviewToken: string | undefined) {
+  if (!overlap) return;
+
+  const blocking = overlap.alerts.find((alert) => alert.severity === "BLOCKED");
+  if (blocking) {
+    throw badRequest(`${blocking.message} Os dados nao foram inseridos.`);
   }
+  if (overlap.status === "REVIEW_REQUIRED" && reviewToken !== overlap.reviewToken) {
+    throw badRequest(
+      "Este PDF tem sobreposicao com outro ja importado e exige revisao explicita. Gere a previa, revise os talhoes indicados e confirme a revisao antes de inserir."
+    );
+  }
+}
 
-  const existingPeriod = formatStoredPeriod(existingBatch.periodStart ?? existingBatch.reportDate, existingBatch.periodEnd);
-
-  throw badRequest(
-    `Ja existe PDF inserido para o periodo ${existingPeriod}: "${existingBatch.fileName}", importado em ${formatStoredDateTime(existingBatch.importedAt)}. Exclua o grupo existente antes de inserir outro PDF desse periodo.`
-  );
+function reviewedOverlapNotesByField(overlap: PdfOverlapAnalysis | undefined) {
+  const notes = new Map<string, string>();
+  for (const alert of overlap?.alerts ?? []) {
+    if (alert.severity !== "REVIEW_REQUIRED") continue;
+    for (const field of alert.fields) {
+      notes.set(fieldKey(field.farmCode, field.fieldCode), `Sobreposicao revisada antes da gravacao: "${alert.fileName}" (${alert.existingPeriod.start} a ${alert.existingPeriod.end}).`);
+    }
+  }
+  return notes;
 }
 
 export async function highlightCaneSummaryPdfDivergences(filePath: string, fileName: string) {
