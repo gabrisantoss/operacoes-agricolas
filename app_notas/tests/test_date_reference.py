@@ -12,6 +12,12 @@ from date_reference import date_column
 from reporting import RelatorioDataService
 from web_app import server
 
+def quantity_total(frame):
+    # PostgreSQL folds unquoted SQL aliases; SQLite preserves their spelling.
+    column = next(name for name in frame.columns if name.casefold() == "qtd")
+    return int(frame[column].sum())
+
+
 class DateReferenceTest(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="notas_date_test_"))
@@ -38,7 +44,7 @@ class DateReferenceTest(unittest.TestCase):
                     self.assertEqual(len(numbers),sum(r["qtd"] for r in self.db.top_por_coluna(column,start,end,date_reference=ref)))
                 self.assertEqual(numbers,set(self.db.dataframe_historico(start,end,ref)["numero"]))
                 flow=self.db.dataframe_fluxo(start,end,ref)
-                self.assertEqual(len(numbers),int(flow["Qtd"].sum()))
+                self.assertEqual(len(numbers),quantity_total(flow))
                 self.assertEqual({"T-ORIGEM"},set(flow["Talhao de origem"]))
                 data=RelatorioDataService(self.db.conn,ref)
                 for kind in ["diario","simplificado","geral","plantio_detalhado","fazendas_muda","fechamento_safra"]:
@@ -65,7 +71,7 @@ class DateReferenceTest(unittest.TestCase):
                     with patch.object(server,"generated_path",return_value=target):
                         server.AppNotasWebHandler.handle_export(handler,{**params,"type":[kind]})
                     frame=pd.read_excel(target)
-                    self.assertEqual(count, len(frame) if kind=="bruto" else int(frame["Qtd"].sum()))
+                    self.assertEqual(count, len(frame) if kind=="bruto" else quantity_total(frame))
                     self.assertEqual({"Data de plantio" if ref=="data_plantio" else "Data de colheita"},set(frame["Data de referencia"]))
 
     def test_pdfs_informam_criterio_em_todas_as_paginas(self):
@@ -111,7 +117,7 @@ class DateReferenceTest(unittest.TestCase):
         target=self.tmp / "desktop.xlsx"
         report._tarefa_excel_fluxo(self.db,"2026-02-01","2026-02-28",str(target),lambda *a: None,lambda: False,date_reference="data_plantio")
         frame=pd.read_excel(target)
-        self.assertEqual(2,int(frame["Qtd"].sum()))
+        self.assertEqual(2,quantity_total(frame))
         self.assertEqual({"Data de plantio"},set(frame["Data de referencia"]))
         history.deleteLater()
         report.deleteLater()
