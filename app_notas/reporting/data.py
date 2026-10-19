@@ -19,7 +19,9 @@ class RelatorioDataService(RelatorioFormatacaoMixin):
                 faz_plantio_cod,
                 faz_plantio_nome,
                 talhao,
-                variedade_nome
+                variedade_nome,
+                faz_muda_cod,
+                faz_muda_nome
             FROM notas
             WHERE data_colheita BETWEEN ? AND ?
             ORDER BY
@@ -64,6 +66,7 @@ class RelatorioDataService(RelatorioFormatacaoMixin):
                     "nota": self._texto_relatorio(row[0], "-"),
                     "data_colheita": data_colheita,
                     "data_plantio": data_plantio,
+                    "origem": self._label_fazenda_relatorio(row[7], row[8]) if row[7] or row[8] else "-",
                     "propriedade": propriedade,
                     "talhao": talhao,
                     "variedade": variedade,

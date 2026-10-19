@@ -1382,7 +1382,7 @@ class DB:
         return self.dataframe_por_query(
             """
             SELECT data_colheita AS Data, faz_muda_nome AS Origem,
-                   talhao AS Talhao, variedade_nome AS Variedade,
+                   talhao AS "Talhao de origem", variedade_nome AS Variedade,
                    faz_plantio_nome AS Destino, COUNT(*) AS Qtd
             FROM notas
             WHERE data_colheita BETWEEN ? AND ?

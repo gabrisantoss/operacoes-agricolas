@@ -29,7 +29,7 @@ HISTORICO_HEADERS = [
     "Col",
     "C.FM",
     "Faz.Muda",
-    "Talhao",
+    "Talhao de origem",
     "C.FP",
     "Faz.Plantio",
     "Var",

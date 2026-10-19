@@ -97,12 +97,30 @@ class RelatorioDataServiceTestCase(unittest.TestCase):
                 "nota": "10",
                 "data_colheita": "01/04/2026",
                 "data_plantio": "03/04/2026",
+                "origem": "[100-001] Origem A",
                 "propriedade": "[200-999] Destino Especial",
                 "talhao": "T-42",
                 "variedade": "RB867515",
             },
             dados["linhas"][0],
         )
+
+    def test_mesmo_talhao_em_origens_distintas_preserva_notas_e_destino(self):
+        self._inserir_nota(21, "100001", "Origem A", "2026-04-01")
+        self._inserir_nota(22, "100002", "Origem B", "2026-04-01")
+        self.db._execute("UPDATE notas SET talhao = 'T-1'")
+        self.db.conn.commit()
+        dados = self.service.coletar_dados_pdf_plantio_detalhado("2026-04-01", "2026-04-30")
+        self.assertEqual(2, dados["total_geral"])
+        linhas = {r["nota"]: r for r in dados["linhas"]}
+        self.assertEqual("[100-001] Origem A", linhas["21"]["origem"])
+        self.assertEqual("[100-002] Origem B", linhas["22"]["origem"])
+        for linha in linhas.values():
+            self.assertEqual("T-1", linha["talhao"])
+            self.assertEqual("[200-001] Destino Base", linha["propriedade"])
+        fluxo = self.db.dataframe_fluxo("2026-04-01", "2026-04-30")
+        self.assertEqual(2, int(fluxo["Qtd"].sum()))
+        self.assertEqual({"T-1"}, set(fluxo["Talhao de origem"]))
 
     def test_coletar_dados_pdf_fazendas_muda_ordena_por_primeira_ultima_data_e_codigo(self):
         self._inserir_nota(1, "300999", "FAZENDA Z", "2026-02-01")

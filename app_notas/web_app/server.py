@@ -675,7 +675,7 @@ def build_note_payload(db: DB, dados: dict) -> dict:
     fazenda_plantio = resolve_reference(db, "fazendas", dados.get("faz_plantio"))
     variedade = resolve_reference(db, "variedades", dados.get("variedade"))
     talhao_raw = str(dados.get("talhao") or "").strip()
-    talhao = resolve_field(db, talhao_raw, fazenda_muda or fazenda_plantio)
+    talhao = resolve_field(db, talhao_raw, fazenda_muda) if fazenda_muda else None
 
     missing = []
     if motorista is None:
@@ -1170,7 +1170,7 @@ class AppNotasWebHandler(SimpleHTTPRequestHandler):
             fazenda_valor = (params.get("fazenda", [""])[0] or "").strip()
             fazenda = resolve_reference(db, "fazendas", fazenda_valor) if fazenda_valor else None
             fazenda_codigo = fazenda["codigo"] if fazenda else fazenda_valor
-            rows = db.listar_talhoes_filtrados(fazenda_codigo=fazenda_codigo, q=q, limit=limit)
+            rows = db.listar_talhoes_filtrados(fazenda_codigo=fazenda_codigo, q=q, limit=limit) if fazenda_codigo else []
             items = []
             for row in rows:
                 nome = row["nome"] or row["codigo"]

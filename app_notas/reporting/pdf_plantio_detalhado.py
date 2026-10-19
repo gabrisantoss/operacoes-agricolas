@@ -8,9 +8,10 @@ class RelatorioPdfPlantioDetalhadoBuilder(RelatorioFormatacaoMixin):
         (20, "NOTA", "R"),
         (27, "COLHEITA", "C"),
         (27, "PLANTIO", "C"),
-        (100, "PROPRIEDADE", "L"),
-        (38, "TALHAO", "L"),
-        (65, "VARIEDADE", "L"),
+        (50, "FAZENDA ORIGEM", "L"),
+        (58, "FAZENDA DESTINO", "L"),
+        (40, "TALHAO ORIGEM", "L"),
+        (45, "VARIEDADE", "L"),
     )
 
     def criar_pdf_plantio_detalhado(self, d_ini, d_fim, dados):
@@ -40,7 +41,7 @@ class RelatorioPdfPlantioDetalhadoBuilder(RelatorioFormatacaoMixin):
         cards = (
             ("Notas", dados["total_geral"], "Registros no periodo", pdf.COLOR_PRIMARY),
             ("Propriedades", metricas["propriedades"], "Fazendas de plantio", pdf.COLOR_GREEN),
-            ("Talhoes", metricas["talhoes"], "Talhoes identificados", pdf.COLOR_AMBER),
+            ("Talhoes de origem", metricas["talhoes"], "Talhoes de colheita", pdf.COLOR_AMBER),
             ("Variedades", metricas["variedades"], "Variedades identificadas", (14, 165, 164)),
         )
         gap = 4
@@ -74,7 +75,7 @@ class RelatorioPdfPlantioDetalhadoBuilder(RelatorioFormatacaoMixin):
     def _desenhar_tabela(self, pdf, linhas):
         pdf.section_title(
             "Detalhamento das notas",
-            "Datas de colheita e plantio, propriedade de destino, talhao e variedade.",
+            "Datas de colheita e plantio, fazendas de origem e destino, talhao de origem e variedade. Destino sem talhao coletado.",
         )
         self._desenhar_cabecalho_tabela(pdf)
 
@@ -93,6 +94,7 @@ class RelatorioPdfPlantioDetalhadoBuilder(RelatorioFormatacaoMixin):
                 item["nota"],
                 item["data_colheita"],
                 item["data_plantio"],
+                item.get("origem", "-"),
                 item["propriedade"],
                 item["talhao"],
                 item["variedade"],

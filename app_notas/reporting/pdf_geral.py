@@ -443,7 +443,7 @@ class RelatorioPdfGeralBuilder(RelatorioFormatacaoMixin):
     def _altura_talhoes_pdf_geral(self, pdf, grupo):
         talhoes_preview = self._resumir_lista(grupo["talhoes"], limite=12)
         pdf.set_font("Helvetica", "", 7)
-        return pdf.text_height(190, f"Talhoes observados: {talhoes_preview}", 4.5)
+        return pdf.text_height(190, f"Talhoes de origem: {talhoes_preview}", 4.5)
 
     def _altura_contexto_bloco_pdf_geral(self, pdf, grupo, continuidade=False):
         altura = 8
@@ -510,7 +510,7 @@ class RelatorioPdfGeralBuilder(RelatorioFormatacaoMixin):
             pdf.multi_cell(
                 190,
                 4.5,
-                self._latin1_safe(f"Talhoes observados: {talhoes_preview}"),
+                self._latin1_safe(f"Talhoes de origem: {talhoes_preview}"),
                 border=0,
                 fill=True,
             )

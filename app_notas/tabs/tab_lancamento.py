@@ -58,7 +58,7 @@ class TabLancamento(QtWidgets.QWidget):
         self.chk_manter = QtWidgets.QCheckBox(" Manter carga")
         self.chk_manter.setCursor(QtCore.Qt.PointingHandCursor)
         self.chk_manter.setToolTip(
-            "Mantem fazendas, variedade e datas do lancamento anterior; o talhao continua livre."
+            "Mantem fazendas, variedade e datas do lancamento anterior; o talhao de origem continua livre."
         )
         chk_font = self.chk_manter.font()
         chk_font.setPointSize(10)
@@ -163,7 +163,7 @@ class TabLancamento(QtWidgets.QWidget):
         self.ed_fmuda = QtWidgets.QLineEdit()
         self.ed_fmuda.setPlaceholderText("Fazenda de origem")
         self.ed_talhao = QtWidgets.QLineEdit()
-        self.ed_talhao.setPlaceholderText("Talhao")
+        self.ed_talhao.setPlaceholderText("Talhao de origem")
         self.ed_fplant = QtWidgets.QLineEdit()
         self.ed_fplant.setPlaceholderText("Fazenda de destino")
         self.ed_var = QtWidgets.QLineEdit()
@@ -174,7 +174,7 @@ class TabLancamento(QtWidgets.QWidget):
             widget.setMaximumHeight(self.ALTURA_CAMPO)
 
         self._add_grid_field(layout_carga, 0, 0, "FAZENDA MUDA:", self.ed_fmuda)
-        self._add_grid_field(layout_carga, 0, 1, "TALHAO:", self.ed_talhao)
+        self._add_grid_field(layout_carga, 0, 1, "TALHAO DE ORIGEM:", self.ed_talhao)
         self._add_grid_field(layout_carga, 1, 0, "FAZENDA PLANTIO:", self.ed_fplant)
         self._add_grid_field(layout_carga, 1, 1, "VARIEDADE:", self.ed_var)
 

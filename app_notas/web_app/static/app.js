@@ -116,7 +116,7 @@ function referenceListSelector(table) {
 }
 
 function currentTalhaoFarm() {
-  return $("#fazMuda").value || $("#fazPlantio").value || "";
+  return $("#fazMuda").value || "";
 }
 
 function escapeHtml(value) {
@@ -383,7 +383,7 @@ const auditLabels = {
   operador: "Operador",
   fazendaMuda: "Fazenda muda",
   fazendaPlantio: "Fazenda plantio",
-  talhao: "Talhao",
+  talhao: "Talhao de origem",
   variedade: "Variedade",
 };
 
