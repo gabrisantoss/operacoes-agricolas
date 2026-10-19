@@ -79,3 +79,16 @@ Os testes de PDF da central leem o texto dos streams gerados pelo PDFKit, sem o 
 Não foram validados: instaladores desktop, execução gráfica Electron, carga concorrente elevada, implantação pública, integrações externas, scanners físicos ou OCR configurado. A revisão visual cobre as telas capturadas; não equivale a validar todas as combinações de formulários e relatórios. Alertas de depreciação de bibliotecas Python permanecem como oportunidade de manutenção.
 
 O exame de privacidade combina seleção positiva de código, exclusão de artefatos, inspeção de padrões e revisão das capturas. Ele reduz o risco de publicação indevida, mas não é uma certificação formal de segurança.
+
+
+## Transporte de Olhadura — revisão final de 19/10/2026
+
+A suíte integrada `python demo.py test` passou em **173 testes Python** (160 nas suítes de aplicações/controlador e 13 adicionais de Notas com PostgreSQL real), **174 testes TypeScript com PostgreSQL** e **6 testes JavaScript de usabilidade web**, sem testes ignorados. Ambiente local Windows, Python 3.11.9, Node 22 e PostgreSQL 17. O build de todos os workspaces passou, `pip check` não encontrou dependências quebradas e `npm audit --audit-level=high` informou zero vulnerabilidades. Não foi repetida uma instalação limpa de dependências nesta revisão.
+
+No portal autenticado, foram verificados login, bloqueio sem sessão, abertura de Notas pelo launcher, cadastro de variedade, lançamento manual, importação CSV sintética de Balança, logout e proteção após logout. Notas mantém o fluxo manual; a importação CSV pertence ao módulo Balança. A nota fictícia com colheita em 30/04/2026 e plantio em 02/05/2026 apareceu somente no mês correspondente à referência escolhida. Histórico, indicadores, 12 PDFs e quatro planilhas foram conferidos nos dois critérios. O fechamento anual foi comparado com o total de janeiro a dezembro, independentemente do recorte mensal da tela.
+
+A revisão em navegador confirmou paginação de 123 notas em páginas de 50, 50 e 23 registros; filtros combinados com 33 resultados; restauração dos filtros após recarregar; seis opções de PDF; aviso explícito do período anual e downloads dos relatórios de mudas e fechamento. As capturas públicas de lançamento, histórico, filtros e relatórios contêm somente dados sintéticos. O talhão exibido corresponde exclusivamente à origem. Os testes automatizados cobrem armazenamento indisponível, data civil local e respostas antigas de autocomplete.
+
+Foram corrigidos dois erros encontrados no PostgreSQL: colisão da sequência de variedades após o seed de IDs fictícios e comparação indevida de um nome com ID numérico ao resolver referências. Há testes de regressão para ambos, incluindo a preservação de sequências já avançadas. A suíte completa acima foi repetida após as correções.
+
+Limites: caminhos de checkout muito longos no Windows podem impedir exportações; a validação final usou checkout curto. Permanecem avisos não fatais de bibliotecas Python. As capturas e conferências não comprovam todas as combinações possíveis de uso, carga ou dispositivos. Nenhum dado operacional foi usado e a instalação de trabalho não foi acessada.

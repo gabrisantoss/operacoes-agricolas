@@ -1,8 +1,16 @@
 const tabStorageKey = "notas.activeTab";
 const validTabs = new Set(["lancamento", "historico", "relatorios", "cadastros"]);
 
+function storageGet(name, key) {
+  try { return window[name].getItem(key); } catch { return null; }
+}
+
+function storageSet(name, key, value) {
+  try { window[name].setItem(key, value); } catch { /* Preferences are optional. */ }
+}
+
 function initialActiveTab() {
-  const stored = window.localStorage.getItem(tabStorageKey);
+  const stored = storageGet("localStorage", tabStorageKey);
   return validTabs.has(stored) ? stored : "lancamento";
 }
 
@@ -15,6 +23,7 @@ const state = {
   reportPeriodInitialized: false,
   reportPeriodTouched: false,
   referenceCache: new Map(),
+  referenceRequests: new Map(),
   activeTab: initialActiveTab(),
   loadedTabs: new Set(["lancamento"]),
   dirtyTabs: new Set(),
@@ -34,11 +43,12 @@ function configureLauncherLinks() {
   });
 }
 
-const today = () => new Date().toISOString().slice(0, 10);
+const localDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+const today = () => localDate(new Date());
 const daysAgo = (days) => {
   const date = new Date();
   date.setDate(date.getDate() - days);
-  return date.toISOString().slice(0, 10);
+  return localDate(date);
 };
 
 function toast(message) {
@@ -90,7 +100,7 @@ async function switchTab(name, options = {}) {
   $$(".tab-button").forEach((button) => button.classList.toggle("active", button.dataset.tab === tabName));
   $$(".tab-panel").forEach((panel) => panel.classList.toggle("active", panel.id === `tab-${tabName}`));
   state.activeTab = tabName;
-  window.localStorage.setItem(tabStorageKey, tabName);
+  storageSet("localStorage", tabStorageKey, tabName);
 
   const shouldLoad = options.force || state.dirtyTabs.has(tabName) || !state.loadedTabs.has(tabName);
   if (!shouldLoad) return;
@@ -147,25 +157,24 @@ function runIdle(task, delay = 600) {
 }
 
 async function loadReferences(table, query = "") {
+  const request = (state.referenceRequests.get(table) || 0) + 1;
+  state.referenceRequests.set(table, request);
   const normalizedQuery = String(query || "").trim();
   const farmQuery = table === "talhoes" ? currentTalhaoFarm() : "";
   const cacheKey = `${table}|${farmQuery.toLowerCase()}|${normalizedQuery.toLowerCase()}`;
-  if (state.referenceCache.has(cacheKey)) {
-    const cached = state.referenceCache.get(cacheKey);
-    const target = referenceListSelector(table);
-    fillDatalist(target, cached);
+  const cached = state.referenceCache.get(cacheKey);
+  if (cached && Date.now() - cached.createdAt < 30000) {
+    fillDatalist(referenceListSelector(table), cached.items);
     return;
   }
-  const params = new URLSearchParams({
-    tabela: table,
-    q: normalizedQuery,
-    limit: "40",
-  });
+  const params = new URLSearchParams({ tabela: table, q: normalizedQuery, limit: "40" });
   if (farmQuery) params.set("fazenda", farmQuery);
   const data = await api(`/api/references?${params.toString()}`);
-  const target = referenceListSelector(table);
-  state.referenceCache.set(cacheKey, data.items);
-  fillDatalist(target, data.items);
+  if (state.referenceRequests.get(table) !== request) return;
+  if (table === "talhoes" && farmQuery !== currentTalhaoFarm()) return;
+  if (state.referenceCache.size >= 100) state.referenceCache.clear();
+  state.referenceCache.set(cacheKey, { items: data.items, createdAt: Date.now() });
+  fillDatalist(referenceListSelector(table), data.items);
 }
 
 async function loadStatus() {
@@ -174,6 +183,7 @@ async function loadStatus() {
   $("#totalBadge").textContent = `Total: ${data.metrics.total}`;
   $("#serverBadge").textContent = "Online";
   applyDefaultReportPeriod(data.defaultPeriod);
+  updateAnnualReportHint();
   if (data.references) {
     renderSyncStatus(data.references);
   } else {
@@ -445,6 +455,28 @@ async function showReferenceAudit(numero) {
   }
 }
 
+const historyFilterIds = ["historySearch", "historyField", "historyOrigin", "historyDestination", "historyVariety", "historyStart", "historyEnd", "historyDateReference"];
+
+function saveHistoryFilters() {
+  const values = Object.fromEntries(historyFilterIds.map((id) => [id, $(`#${id}`).value]));
+  storageSet("sessionStorage", "notas.historyFilters.v1", JSON.stringify({ ...values, usePeriod: state.currentHistoryUsePeriod }));
+}
+
+function restoreHistoryFilters() {
+  try {
+    const values = JSON.parse(storageGet("sessionStorage", "notas.historyFilters.v1") || "null");
+    if (!values || typeof values !== "object") return;
+    for (const id of historyFilterIds) {
+      if (typeof values[id] !== "string") continue;
+      const element = $(`#${id}`);
+      if (element.tagName === "SELECT" && !Array.from(element.options).some((option) => option.value === values[id])) continue;
+      if (element.type === "date" && !/^\d{4}-\d{2}-\d{2}$/.test(values[id])) continue;
+      element.value = values[id];
+    }
+    state.currentHistoryUsePeriod = values.usePeriod === true;
+  } catch { /* Ignore damaged preferences. */ }
+}
+
 function historyUrl(usePeriod, offset = state.historyOffset) {
   const params = new URLSearchParams();
   params.set("q", $("#historySearch").value);
@@ -477,6 +509,7 @@ async function loadHistory(usePeriod = false, offset = 0) {
   $("#historyPrev").disabled = true;
   $("#historyNext").disabled = true;
   state.currentHistoryUsePeriod = usePeriod;
+  saveHistoryFilters();
   state.historyController?.abort();
   const controller = new AbortController();
   state.historyController = controller;
@@ -568,9 +601,26 @@ async function loadDashboard() {
     .join("");
 }
 
-function downloadReport(kind, type) {
-  const start = $("#reportStart").value;
+function annualReportYear() {
   const end = $("#reportEnd").value;
+  return /^\d{4}-\d{2}-\d{2}$/.test(end) ? end.slice(0, 4) : today().slice(0, 4);
+}
+
+function updateAnnualReportHint() {
+  const year = annualReportYear();
+  const reference = $("#reportDateReference").value === "data_plantio" ? "Data de plantio" : "Data de colheita";
+  $("#annualReportPeriod").textContent = `Fechamento anual: 01/01/${year} a 31/12/${year}, pela ${reference}. Os demais relatorios usam o intervalo acima.`;
+  $("#annualReportButton").textContent = `PDF fechamento anual (${year})`;
+}
+
+function downloadReport(kind, type) {
+  let start = $("#reportStart").value;
+  let end = $("#reportEnd").value;
+  if (type === "fechamento") {
+    const year = annualReportYear();
+    start = `${year}-01-01`;
+    end = `${year}-12-31`;
+  }
   const reference = $("#reportDateReference").value;
   const path = kind === "pdf"
     ? `/api/relatorios/pdf?type=${encodeURIComponent(type)}&start=${start}&end=${end}&date_reference=${reference}`
@@ -742,12 +792,13 @@ function bindEvents() {
     if (copy) copyNoteToNewLaunch(copy.dataset.copy);
     if (origin) showReferenceAudit(origin.dataset.origin);
   });
-  $("#reportDateReference").addEventListener("change", loadDashboard);
+  $("#reportDateReference").addEventListener("change", () => { updateAnnualReportHint(); loadDashboard(); });
   $("#historyDateReference").addEventListener("change", () => loadHistory(state.currentHistoryUsePeriod));
   $("#reportRefresh").addEventListener("click", loadDashboard);
   ["#reportStart", "#reportEnd"].forEach((selector) => {
     $(selector).addEventListener("input", () => {
       state.reportPeriodTouched = true;
+      updateAnnualReportHint();
     });
   });
   $("#exportRaw").addEventListener("click", () => downloadReport("export", "bruto"));
@@ -783,6 +834,7 @@ async function init() {
   $("#reportEnd").value = t;
   $("#reportStart").value = t;
   $("#correctionDate").value = t;
+  restoreHistoryFilters();
   bindEvents();
   await loadStatus();
   await switchTab(state.activeTab);

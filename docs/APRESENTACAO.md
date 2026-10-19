@@ -22,9 +22,9 @@ O portal centraliza o acesso. A Balança mantém os cadastros de propriedades e 
 
 ### Notas e Transporte
 
-![BI de transporte fictício](screenshots/notas.png)
+![Histórico paginado de transporte fictício](screenshots/notas.png)
 
-Visão do período, rankings e exportações, com ligação aos cadastros dos outros módulos.
+Histórico paginado, filtros combinados de origem/destino/variedade e período por colheita ou plantio. Os seis PDFs incluem o fechamento anual, que informa o ano completo antes do download. O talhão registrado é exclusivamente o de origem. [Regras e fluxo](../app_notas/README.md).
 
 ### Colaboradores
 

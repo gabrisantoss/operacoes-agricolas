@@ -132,6 +132,14 @@ class DateReferenceTest(unittest.TestCase):
         self.assertIsNone(self.db.buscar_nota(4)["data_plantio"])
         self.assertEqual(4,self.db.contar_notas_total())
 
+    def test_variedade_por_nome_ou_id_sem_erro_de_tipo(self):
+        self.db.adicionar_variedade("VARIEDADE FICTICIA POR NOME")
+        by_name=self.db.resolver_referencia("variedades", "VARIEDADE FICTICIA POR NOME", col_id="id")
+        self.assertIsNotNone(by_name)
+        by_id=self.db.resolver_referencia("variedades", str(by_name["id"]), col_id="id")
+        self.assertEqual(by_name["id"], by_id["id"])
+        self.assertIsNone(self.db.resolver_referencia("variedades", "NOME INEXISTENTE", col_id="id"))
+
     def test_data_invalida_rejeitada(self):
         for ref in ["numero", "data_colheita; DROP TABLE notas", ""]:
             with self.assertRaises(ValueError): date_column(ref)

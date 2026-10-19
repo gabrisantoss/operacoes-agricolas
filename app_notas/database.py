@@ -863,10 +863,15 @@ class DB:
             if authoritative:
                 return None
 
+        lookup_value = valor_txt
+        if campo_id == "id":
+            try:
+                lookup_value = int(valor_txt)
+            except ValueError:
+                lookup_value = None
         row = self._fetchone(
-            f"SELECT * FROM {tabela} WHERE {campo_id} = ?",
-            (valor_txt,)
-        )
+            f"SELECT * FROM {tabela} WHERE {campo_id} = ?", (lookup_value,)
+        ) if lookup_value is not None else None
         if row:
             return row
 

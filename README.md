@@ -53,16 +53,27 @@ As datas são relativas ao primeiro preparo. Os indicadores são calculados a pa
 | --- | --- |
 | ![Prévia da importação de OS](docs/screenshots/importacao-os.png) | ![Revisão de sobreposição de PDF](docs/screenshots/sobreposicao-pdf.png) |
 
+## Destaques de Notas e Transporte
+
+- Histórico com páginas de 50 notas, total e filtros combinados de origem, destino e variedade.
+- Consulta e relatórios por data de colheita (padrão) ou plantio; talhão exclusivamente de origem.
+- Seis PDFs no navegador, incluindo histórico de fazendas de mudas e fechamento anual com ano/período explícitos, além de Excel bruto e de fluxo.
+- Datas locais, filtros preservados na sessão e proteção contra respostas antigas de autocomplete.
+
+[Fluxo, regras, relatórios e código do módulo](app_notas/README.md).
+
+![Histórico de notas fictícias](docs/screenshots/notas.png)
+
 ## Executar localmente
 
-Ambiente validado: **Windows, Python 3.12, Node.js 22, npm 11 e PostgreSQL 17**. Instale esses pré-requisitos antes de continuar. Não é necessário criar um serviço PostgreSQL para a demonstração: o controlador cria seu próprio cluster local.
+Ambiente validado: **Windows, Python 3.11.9, Node.js 22, npm 11 e PostgreSQL 17**. Instale esses pré-requisitos antes de continuar. Não é necessário criar um serviço PostgreSQL para a demonstração: o controlador cria seu próprio cluster local.
 
 ```powershell
 git clone https://github.com/gabrisantoss/operacoes-agricolas.git
 cd operacoes-agricolas
-py -3.12 demo.py setup
-py -3.12 demo.py credentials
-py -3.12 demo.py start --open
+py -3.11 demo.py setup
+py -3.11 demo.py credentials
+py -3.11 demo.py start --open
 ```
 
 A leitura de PDFs usa o `pdftotext` do **Poppler**. Se outro `pdftotext` vier antes no PATH, defina `POPPLER_BIN_DIR` antes do `start`; a importação explica o problema caso o leitor não sirva.
@@ -81,7 +92,7 @@ O preparo instala dependências em `.demo/venv`, compila os workspaces TypeScrip
 Depois do preparo, o arquivo `INICIAR DEMONSTRACAO.cmd` também abre a suíte. Mantenha o terminal aberto. **Ctrl+C** encerra os cinco servidores; para encerrar o banco dedicado, execute:
 
 ```powershell
-py -3.12 demo.py stop-db
+py -3.11 demo.py stop-db
 ```
 
 Nenhum serviço do Windows, tarefa agendada ou regra de firewall é instalado. Portas ocupadas interrompem a inicialização; o controlador não reaproveita processos de outra instalação.
@@ -106,7 +117,7 @@ Mais contexto em [apresentação do projeto](docs/APRESENTACAO.md) e [arquitetur
 Python/PyQt5 nas aplicações administrativas; React/TypeScript na Balança; Express nas APIs; PostgreSQL como persistência demonstrativa. Os relatórios preservam os mecanismos próprios de cada aplicação, incluindo ReportLab, FPDF2, PDFKit e exportações Excel.
 
 ```powershell
-py -3.12 demo.py test
+py -3.11 demo.py test
 cd balanca-audit
 npm.cmd run build
 npm.cmd audit

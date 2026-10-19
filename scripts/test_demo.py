@@ -34,6 +34,16 @@ def main():
                             cwd=ROOT, env={**demo.environment(settings), "OA_DEMO_NODE": settings["node"]})
     if result.returncode:
         failures.append("controlador")
+    print("\n=== Notas: comportamento web ===", flush=True)
+    result = subprocess.run([settings["node"], "--test", str(ROOT / "app_notas/tests/web_usability.test.cjs")],
+                            cwd=ROOT, env=demo.environment(settings))
+    if result.returncode:
+        failures.append("notas/web-usability")
+    print("\n=== Notas: PostgreSQL real ===", flush=True)
+    result = subprocess.run([str(demo.python_exe()), str(ROOT / "scripts/test_notas_postgres.py")],
+                            cwd=ROOT, env=demo.environment(settings, "notas"))
+    if result.returncode:
+        failures.append("notas/postgres")
     api = ROOT / "balanca-audit/apps/api"
     env = demo.environment(settings)
     env["NODE_ENV"] = "test"

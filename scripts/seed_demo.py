@@ -40,15 +40,31 @@ def insert(conn, table, **values):
     conn.execute(statement, list(values.values()))
 
 
+def align_notes_variety_sequence(conn):
+    """Explicit fictional IDs must not collide with later automatic registrations."""
+    maximum = conn.execute("SELECT MAX(id) FROM variedades").fetchone()[0]
+    if maximum is None:
+        return
+    sequence = conn.execute("SELECT pg_get_serial_sequence('variedades', 'id')").fetchone()[0]
+    last_value, called = conn.execute(sql.SQL("SELECT last_value, is_called FROM {}").format(
+        sql.Identifier(*sequence.split(".")))).fetchone()
+    if maximum > last_value or (maximum == last_value and not called):
+        conn.execute("SELECT setval(%s::regclass, %s, true)", (sequence, maximum))
+
+
 def seed(module, callback):
     target = demo.database_url(SETTINGS, module)
     assert_demo_database_target(target)
     with psycopg.connect(target) as conn:
         conn.execute("CREATE TABLE IF NOT EXISTS oa_demo_seed (version text PRIMARY KEY, created_at date NOT NULL)")
         if conn.execute("SELECT 1 FROM oa_demo_seed WHERE version='v1'").fetchone():
+            if module == "notas":
+                align_notes_variety_sequence(conn)
             print(module + ": dados ficticios ja preparados")
             return
         callback(conn)
+        if module == "notas":
+            align_notes_variety_sequence(conn)
         insert(conn, "oa_demo_seed", version="v1", created_at=TODAY)
         print(module + ": cenario ficticio preparado")
 

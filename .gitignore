@@ -44,3 +44,5 @@ app_config.json
 *.pdf
 *.xls*
 !docs/screenshots/*.png
+
+.playwright-cli/

@@ -19,6 +19,8 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: balanca-audit/package-lock.json
+      - name: Notas web behavior
+        run: node --test app_notas/tests/web_usability.test.cjs
       - run: npm install -g npm@11
       - name: Install JavaScript dependencies
         working-directory: balanca-audit

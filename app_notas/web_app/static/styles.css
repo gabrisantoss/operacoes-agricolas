@@ -729,3 +729,5 @@ dialog::backdrop {
   justify-content: space-between;
   flex-wrap: wrap;
 }
+
+.report-period-note { margin: 0 18px 18px; color: #38453e; font-size: 0.9rem; }
