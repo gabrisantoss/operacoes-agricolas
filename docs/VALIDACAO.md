@@ -24,7 +24,7 @@ Verificação local da branch consolidada, em clone limpo, com `demo.py setup` e
 | Testes Python | **143 aprovados** |
 | Testes da API TypeScript | **174 aprovados, 0 falhas, 0 ignorados**, com PostgreSQL real e PDFs sintéticos lidos pelo Poppler |
 | Interface | Importação CSV, central de relatórios, importação de OS e cenários de PDF percorridos com Playwright; capturas novas com dados fictícios |
-| npm audit | **4 alertas transitivos (2 críticos, 2 altos)** em `proxy-addr`, `shell-quote`, `brace-expansion` e `source-map-js`. As dependências não mudaram desde a publicação anterior; são avisos publicados depois de 14/09/2026 e ainda não tratados |
+| npm audit | **0 vulnerabilidades** com `npm audit --audit-level=high` (o mesmo do CI), depois de atualizar no lockfile, sem mudar faixas semver, quatro dependências transitivas: `proxy-addr` 2.0.8, `shell-quote` 1.12.0, `brace-expansion` 1.1.21/2.1.7 e `source-map-js` 1.2.2 |
 
 ## Como repetir
 
